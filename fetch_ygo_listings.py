@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Callable
 
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 
 import argparse
 
@@ -22,7 +22,6 @@ parser.add_argument("--listings", default=10, help="Listings count", type=int)
 parser.add_argument("--sales", default=25, help="Sales count", type=int)
 parser.add_argument("-o", "--output", help="Output directory", type=str)
 parser.add_argument("-c", "--config", help="Mongo Env Config", type=str)
-parser.add_argument("-fc", "--filter_custom", help="Filter Custom Cards", action='store_true')
 parser.set_defaults(filter_custom=False)
 
 MAX_WORKERS = 48
@@ -87,8 +86,8 @@ else:
             os.mkdir(output_dir + "sales/")
         config['path'] = output_dir
 
-    mongo_config = dotenv_values(args.config)
-    mongo_client = MongoClient(mongo_config["ATLAS_URI"])
+    load_dotenv()
+    mongo_client = MongoClient(os.environ.get("ATLAS_URI"))
     tcgplayer_listing_repository = TCGPlayerListingRepository(mongo_client)
 
     config['filter_custom'] = args.filter_custom
