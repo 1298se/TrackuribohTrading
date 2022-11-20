@@ -12,7 +12,7 @@ def round_to_hour(t):
 
 class TCGPlayerListingRepository:
     def __init__(self, mongodb_client: MongoClient):
-        self.collection = mongodb_client.get_database("YGOPricing").get_collection("ProductListingHourlyHistory")
+        self.collection = mongodb_client.get_database('YGOPricing').get_collection('ProductListingHourlyHistory')
 
     def insert_product_listings(self, product_id: int, listing_results: dict):
         now = datetime.utcnow()
@@ -23,7 +23,7 @@ class TCGPlayerListingRepository:
         listing_count = listing_results['total_listings']
         copies_count = listing_results['copies_count']
         lowest_price = new_listings[0][
-            "price"]  # functools.reduce(lambda a, b: a if a["price"] < b["price"] else b, new_listings)n
+            'price']  # functools.reduce(lambda a, b: a if a["price"] < b["price"] else b, new_listings)n
         metadata = {
             'productId': product_id,
             'printing': listing_results['printing'],
@@ -31,13 +31,13 @@ class TCGPlayerListingRepository:
         }
 
         parsed_listings = list(map(lambda x: {
-            'verifiedSeller': x["verifiedSeller"],
-            'goldSeller': x["goldSeller"],
-            'listingId': int(x["listingId"]),
-            'quantity': int(x["quantity"]),
-            'sellerName': x["sellerName"],
-            'price': x["price"],
-            'sellerShippingPrice': x["sellerShippingPrice"],
+            'verifiedSeller': x['verifiedSeller'],
+            'goldSeller': x['goldSeller'],
+            'listingId': int(x['listingId']),
+            'quantity': int(x['quantity']),
+            'sellerName': x['sellerName'],
+            'price': x['price'],
+            'sellerShippingPrice': x['sellerShippingPrice'],
         }, new_listings))
 
         self.collection.insert_one({

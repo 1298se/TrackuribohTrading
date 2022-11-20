@@ -7,7 +7,7 @@ from pymongo import MongoClient
 
 class TCGPlayerSalesRepository:
     def __init__(self, mongodb_client: MongoClient):
-        self.collection = mongodb_client.get_database("YGOPricing").get_collection("ProductSalesHistory")
+        self.collection = mongodb_client.get_database('YGOPricing').get_collection('ProductSalesHistory')
 
     def insert_product_sales(self, product_id: int, sales_results: dict):
         new_sales = sales_results['sales']
@@ -17,10 +17,10 @@ class TCGPlayerSalesRepository:
         latest_sale_timestamp = new_sales[0]['orderDate']
 
         parsed_sales = list(map(lambda x: {
-            'quantity': int(x["quantity"]),
-            'orderDate': x["orderDate"],
-            'price': x["purchasePrice"],
-            'shippingPrice': x["shippingPrice"],
+            'quantity': int(x['quantity']),
+            'orderDate': x['orderDate'],
+            'price': x['purchasePrice'],
+            'shippingPrice': x['shippingPrice'],
         }, new_sales))
 
         self.collection.update_one(
