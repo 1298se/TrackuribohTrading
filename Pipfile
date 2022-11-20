@@ -19,6 +19,8 @@ tzdata = "==2022.6"
 tzlocal = "==4.2"
 urllib3 = "==1.26.12"
 pymongo = "*"
+pandas = "*"
+statsmodels = "*"
 
 [dev-packages]
 

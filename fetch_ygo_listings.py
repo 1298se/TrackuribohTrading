@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import argparse
 import json
 import os
 import sys
@@ -6,13 +7,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Callable
 
-from dotenv import dotenv_values, load_dotenv
-
-import argparse
-
+from dotenv import load_dotenv
 from pymongo import MongoClient
 
 from repositories.tcgplayer_listing_repository import TCGPlayerListingRepository
+from repositories.tcgplayer_sales_repository import TCGPlayerSalesRepository
 from services.tcgplayer_listing_service import get_listings, filter_duplicate_sales, get_sales
 
 parser = argparse.ArgumentParser()
@@ -42,7 +41,13 @@ def parallel_execute(items: [dict], fun: Callable, **kwargs):
     return results
 
 
-def download(listing_repository: TCGPlayerListingRepository, items, listing_count, sales_count, config: dict):
+def download(
+        listing_repository: TCGPlayerListingRepository,
+        sales_repository: TCGPlayerSalesRepository,
+        items, listing_count,
+        sales_count,
+        config: dict
+):
     start_time = datetime.utcnow()
     listings = parallel_execute(items, get_listings, count=listing_count, config=config)
     print("%s listings downloaded" % len(listings))
@@ -54,9 +59,9 @@ def download(listing_repository: TCGPlayerListingRepository, items, listing_coun
     print("%s sales downloaded" % len(sales))
 
     for (product_id, sale_results) in sales.items():
-        filtered_sales = filter_duplicate_sales(product_id, sale_results, listing_repository)
+        filtered_sales = filter_duplicate_sales(product_id, sale_results, sales_repository)
         sale_results["sales"] = filtered_sales
-        listing_repository.insert_product_sales(product_id=product_id, sales_results=sale_results)
+        sales_repository.insert_product_sales(product_id=product_id, sales_results=sale_results)
     # store(filtered_sales, mode="sales", database=database, path=path)
 
     print("Completed in:", (datetime.utcnow() - start_time))
@@ -88,7 +93,8 @@ else:
     load_dotenv()
     mongo_client = MongoClient(os.environ.get("ATLAS_URI"))
     tcgplayer_listing_repository = TCGPlayerListingRepository(mongo_client)
+    tcgplayer_sales_repository = TCGPlayerSalesRepository(mongo_client)
 
     config['filter_custom'] = args.filter_custom
 
-    download(tcgplayer_listing_repository, data, listings_count, sales_count, config)
+    download(tcgplayer_listing_repository, tcgplayer_sales_repository, data, listings_count, sales_count, config)

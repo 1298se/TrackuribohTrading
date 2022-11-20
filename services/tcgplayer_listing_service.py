@@ -4,6 +4,7 @@ from types import MappingProxyType
 import requests
 
 from repositories.tcgplayer_listing_repository import TCGPlayerListingRepository
+from repositories.tcgplayer_sales_repository import TCGPlayerSalesRepository
 
 BASE_URL = "https://mpapi.tcgplayer.com/v2/product/%d"
 BASE_LISTINGS_URL = f'{BASE_URL}/listings'
@@ -136,8 +137,8 @@ def get_sales(item: {}, count=25, config=None) -> ([any], any):
            }, None
 
 
-def filter_duplicate_sales(product_id: int, sale_results: {}, listing_repository: TCGPlayerListingRepository) -> []:
-    latest_sale_timestamp = listing_repository.get_product_latest_sale_date(product_id, sale_results['condition'], sale_results['printing'])
+def filter_duplicate_sales(product_id: int, sale_results: {}, sales_repository: TCGPlayerSalesRepository) -> []:
+    latest_sale_timestamp = sales_repository.get_product_latest_sale_date(product_id, sale_results['condition'], sale_results['printing'])
     filtered_sales = list(filter(lambda x: x['orderDate'] > latest_sale_timestamp, sale_results['sales']))
     return filtered_sales
 
