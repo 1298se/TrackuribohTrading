@@ -21,7 +21,6 @@ parser.add_argument("inputfile", help="Input file", type=str)
 parser.add_argument("--listings", default=10, help="Listings count", type=int)
 parser.add_argument("--sales", default=25, help="Sales count", type=int)
 parser.add_argument("-o", "--output", help="Output directory", type=str)
-parser.add_argument("-c", "--config", help="Mongo Env Config", type=str)
 parser.set_defaults(filter_custom=False)
 
 MAX_WORKERS = 48
