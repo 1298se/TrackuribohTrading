@@ -40,7 +40,7 @@ class Card(Base):
 
         card_metadata = Card.parse_extended_data(response['extendedData'])
         rarity = session.query(Rarity).filter_by(name=card_metadata.get('Rarity')).one_or_none()
-        print(rarity)
+
         return Card(
             id=response['productId'],
             name=response['name'],
