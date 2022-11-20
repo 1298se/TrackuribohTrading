@@ -21,6 +21,7 @@ urllib3 = "==1.26.12"
 pymongo = "*"
 pandas = "*"
 statsmodels = "*"
+traces = "*"
 
 [dev-packages]
 

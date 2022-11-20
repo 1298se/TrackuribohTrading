@@ -8,16 +8,57 @@
     Then, we can just see if there's listings that we should be picking up!
 """
 import os
+from datetime import timedelta
 
-import pandas as pd
+import pymongo
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
-from repositories.tcgplayer_listing_repository import TCGPlayerListingRepository
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session as DBSession
+from statsmodels.tsa.holtwinters import SimpleExpSmoothing
+from traces import TimeSeries
 
 load_dotenv()
 mongo_client = MongoClient(os.environ.get("ATLAS_URI"))
 db = mongo_client.get_database('YGOPricing')
+sales_collection = db.get_collection('ProductSalesHistory')
+listings_collection = db.get_collection("ProductListingHourlyHistory")
 
-tcgplayer_listing_repository = TCGPlayerListingRepository(mongo_client)
+load_dotenv()
+
+SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URI")
+
+engine = create_engine(SQLALCHEMY_DATABASE_URI, future=True)
+
+db_session = DBSession(engine)
+
+sales_documents = sales_collection.find()
+
+for sales_document in sales_documents:
+    sale_listings = [(sale['orderDate'], sale['price'] + sale['shippingPrice']) for sale in sales_document.get('sales')]
+
+    sale_time_series = TimeSeries(sale_listings)
+
+    try:
+        regularized_sales_timeseries = sale_time_series.moving_average(sampling_period=timedelta(hours=1), pandas=True)
+        regularized_sales_timeseries.index.freq = regularized_sales_timeseries.index.inferred_freq
+        sales_forecast_model = SimpleExpSmoothing(regularized_sales_timeseries, initialization_method="heuristic").fit()
+
+        forecasted_sales_price = sales_forecast_model.forecast()
+
+        recent_listings_document = listings_collection.find_one({
+            'metadata': {
+                'condition': sales_document['condition'],
+                'printing': sales_document['printing'],
+                'productId': sales_document['productId']
+            },
+        }, sort=[('timestamp', pymongo.DESCENDING)])
+
+        recent_listings = recent_listings_document['listings']
+
+        for listing in recent_listings:
+            if (listing['price'] + listing['sellerShippingPrice']) * 1.34 + 0.3 < forecasted_sales_price:
+                print(recent_listings_document['metadata'])
+
+    except ValueError:
+        continue
