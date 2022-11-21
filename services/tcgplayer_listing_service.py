@@ -1,9 +1,9 @@
 from datetime import datetime
+from json import JSONDecodeError
 from types import MappingProxyType
 
 import requests
 
-from repositories.tcgplayer_listing_repository import TCGPlayerListingRepository
 from repositories.tcgplayer_sales_repository import TCGPlayerSalesRepository
 
 BASE_URL = "https://mpapi.tcgplayer.com/v2/product/%d"
@@ -65,7 +65,13 @@ def __get_listings(item_id: int, count: int, config: {}) -> ([any], int, int):
         config["printing"],
         config["condition"]
     )
-    result = requests.post(url=url, json=data, headers=BASE_HEADERS).json()
+    print(url)
+    try:
+        result = requests.post(url=url, json=data, headers=BASE_HEADERS).json()
+    except JSONDecodeError as e:
+        print(e)
+        return [], 0, 0
+
     if result["errors"]:
         raise Exception()
     results = result["results"][0]
@@ -156,7 +162,14 @@ def __get_sales(item_id: int, count: int, offset: int, config: {}) -> ([any], bo
 
     listing_type = 'ListingWithoutPhotos' if config["filter_custom"] else 'All'
     url, data = __create_sales_request(item_id, count, offset, listing_type=listing_type, condition=condition, printing=printing)
-    result = requests.post(url=url, json=data, headers=BASE_HEADERS).json()
+
+    print(url)
+    try:
+        result = requests.post(url=url, json=data, headers=BASE_HEADERS).json()
+    except JSONDecodeError as e:
+        print(e)
+        return [], False
+
     sales = result["data"]
     has_more = result["nextPage"] == 'Yes'
     return sales, has_more

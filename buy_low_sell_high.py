@@ -24,12 +24,8 @@ db = mongo_client.get_database('YGOPricing')
 sales_collection = db.get_collection('ProductSalesHistory')
 listings_collection = db.get_collection("ProductListingHourlyHistory")
 
-load_dotenv()
-
 SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URI")
-
 engine = create_engine(SQLALCHEMY_DATABASE_URI, future=True)
-
 db_session = DBSession(engine)
 
 sales_documents = sales_collection.find()
@@ -42,7 +38,7 @@ for sales_document in sales_documents:
     try:
         regularized_sales_timeseries = sale_time_series.moving_average(sampling_period=timedelta(hours=1), pandas=True)
         regularized_sales_timeseries.index.freq = regularized_sales_timeseries.index.inferred_freq
-        sales_forecast_model = SimpleExpSmoothing(regularized_sales_timeseries, initialization_method="heuristic").fit()
+        sales_forecast_model = SimpleExpSmoothing(regularized_sales_timeseries, initialization_method="estimated").fit()
 
         forecasted_sales_price = sales_forecast_model.forecast()
 
@@ -57,8 +53,9 @@ for sales_document in sales_documents:
         recent_listings = recent_listings_document['listings']
 
         for listing in recent_listings:
-            if (listing['price'] + listing['sellerShippingPrice']) * 1.34 + 0.3 < forecasted_sales_price:
-                print(recent_listings_document['metadata'])
+            listing_total_price = listing['price'] + listing['sellerShippingPrice']
+            if listing_total_price * 1.34 + 0.3 < forecasted_sales_price[0]:
+                print(recent_listings_document['metadata'], "LISTING PRICE: ", listing_total_price, "FORECASTED SALES PRICE: ", forecasted_sales_price)
 
     except ValueError:
         continue

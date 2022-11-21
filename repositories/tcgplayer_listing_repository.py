@@ -22,12 +22,13 @@ class TCGPlayerListingRepository:
 
         listing_count = listing_results['total_listings']
         copies_count = listing_results['copies_count']
-        lowest_price = new_listings[0][
-            'price']  # functools.reduce(lambda a, b: a if a["price"] < b["price"] else b, new_listings)n
+        lowest_listing = new_listings[0] if len(new_listings) > 0 else None
+        lowest_price = lowest_listing['price'] if lowest_listing is not None else None
+        # functools.reduce(lambda a, b: a if a["price"] < b["price"] else b, new_listings)n
         metadata = {
-            'productId': product_id,
+            'condition': listing_results['condition'],
             'printing': listing_results['printing'],
-            'condition': listing_results['condition']
+            'productId': product_id,
         }
 
         parsed_listings = list(map(lambda x: {
