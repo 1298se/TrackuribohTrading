@@ -52,10 +52,18 @@ for sales_document in sales_documents:
 
         recent_listings = recent_listings_document['listings']
 
+        steals = set()
         for listing in recent_listings:
             listing_total_price = listing['price'] + listing['sellerShippingPrice']
             if listing_total_price * 1.34 + 0.3 < forecasted_sales_price[0]:
-                print(recent_listings_document['metadata'], "LISTING PRICE: ", listing_total_price, "FORECASTED SALES PRICE: ", forecasted_sales_price)
+                print(listing_total_price, forecasted_sales_price[0])
+                steals.add(sales_document['productId'])
+
+        f = open("steals.txt", "a")
+
+        for steal in steals:
+            f.write(f'tcgplayer.com/product/{steal}\n')
+        f.close()
 
     except ValueError:
         continue
