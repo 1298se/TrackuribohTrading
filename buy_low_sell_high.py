@@ -7,16 +7,28 @@
     Since we have a list of pricing history, we can use a forecasting model to predict the next selling price of a card.
     Then, we can just see if there's listings that we should be picking up!
 """
+import datetime
+import json
 import os
 from datetime import timedelta
 
+import numpy as np
+import pandas as pd
 import pymongo
 from dotenv import load_dotenv
+from matplotlib import dates
+from pandas import DataFrame
 from pymongo import MongoClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session as DBSession
-from statsmodels.tsa.holtwinters import SimpleExpSmoothing
-from traces import TimeSeries
+
+from models.card import Card
+from models.set import Set
+from models.condition import Condition
+from models.printing import Printing
+from models.rarity import Rarity
+from models.sku import Sku
+from utils.stats import remove_outliers_iqr, get_past_week_data, shift_series_by_time_delta
 
 load_dotenv()
 mongo_client = MongoClient(os.environ.get("ATLAS_URI"))
@@ -30,40 +42,59 @@ db_session = DBSession(engine)
 
 sales_documents = sales_collection.find()
 
-for sales_document in sales_documents:
-    sale_listings = [(sale['orderDate'], sale['price'] + sale['shippingPrice']) for sale in sales_document.get('sales')]
+with open("steals.txt", 'w') as output_file:
+    output = []
 
-    sale_time_series = TimeSeries(sale_listings)
+    for sales_document in sales_documents:
 
-    try:
-        regularized_sales_timeseries = sale_time_series.moving_average(sampling_period=timedelta(hours=1), pandas=True)
-        regularized_sales_timeseries.index.freq = regularized_sales_timeseries.index.inferred_freq
-        sales_forecast_model = SimpleExpSmoothing(regularized_sales_timeseries, initialization_method="estimated").fit()
+        for sale in sales_document['sales']:
+            sale['totalPrice'] = sale['price'] + sale['shippingPrice']
 
-        forecasted_sales_price = sales_forecast_model.forecast()
+        sales_df = DataFrame(sales_document['sales'])
+
+        last_week_sales_df = get_past_week_data(sales_df, 'orderDate')
+        last_week_sales_df = remove_outliers_iqr(last_week_sales_df, 'totalPrice')
+
+        if last_week_sales_df.empty:
+            continue
+
+        last_week_sold_quantity = last_week_sales_df['quantity'].sum()
+
+        median_sale_price = last_week_sales_df['totalPrice'].median()
+
+        x = shift_series_by_time_delta(last_week_sales_df['orderDate'], timedelta(days=7))
+        y = last_week_sales_df['totalPrice']
+        z = np.polynomial.polynomial.polyfit(x, y, 1)
+
+        condition = sales_document['condition']
+        printing = sales_document['printing']
+        product_id = sales_document['productId']
 
         recent_listings_document = listings_collection.find_one({
             'metadata': {
-                'condition': sales_document['condition'],
-                'printing': sales_document['printing'],
-                'productId': sales_document['productId']
+                'condition': condition,
+                'printing': printing,
+                'productId': product_id,
             },
         }, sort=[('timestamp', pymongo.DESCENDING)])
 
         recent_listings = recent_listings_document['listings']
 
-        steals = set()
         for listing in recent_listings:
             listing_total_price = listing['price'] + listing['sellerShippingPrice']
-            if listing_total_price * 1.34 + 0.3 < forecasted_sales_price[0]:
-                print(listing_total_price, forecasted_sales_price[0])
-                steals.add(sales_document['productId'])
+            if listing_total_price < median_sale_price:
+                card = db_session.get(Card, product_id)
 
-        f = open("steals.txt", "a")
+                output_dict = {
+                    'name': card.name,
+                    'set_name': card.set.name,
+                    'lowest_listing_price': round(listing_total_price, 2),
+                    'median_sales_price': round(median_sale_price, 2),
+                    'weekly_sold_quantity': int(last_week_sold_quantity),
+                    'sales_trendline': round(z[1], 2),
+                    'link': f'tcgplayer.com/product/{product_id}'
+                }
+                output.append(output_dict)
+                break
 
-        for steal in steals:
-            f.write(f'tcgplayer.com/product/{steal}\n')
-        f.close()
-
-    except ValueError:
-        continue
+    json.dump(output, output_file, indent=4)
