@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 
 from models import Base
+from jobs.types import CardSetResponse
 
 
 class Set(Base):
@@ -17,7 +18,7 @@ class Set(Base):
     cards = relationship("Card", back_populates="set")
 
     @staticmethod
-    def from_tcgplayer_response(response: dict):
+    def from_tcgplayer_response(response: CardSetResponse):
         return Set(
             id=response['groupId'],
             name=response['name'],

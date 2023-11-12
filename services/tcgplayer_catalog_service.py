@@ -1,10 +1,12 @@
 import os
 
 from datetime import datetime
+from typing import Optional
 
 import requests
 from threading import Lock
 from requests import RequestException
+import logging
 
 TCGPLAYER_CATEGORY_ID = 2
 TCGPLAYER_BASE_URL = "https://api.tcgplayer.com"
@@ -26,21 +28,28 @@ def access_token_expired(expiry) -> bool:
 def _fetch_tcgplayer_resource(url, **kwargs):
     try:
         response = requests.get(
-                url=url,
-                **kwargs
+            url=url,
+            **kwargs
         )
+
+        response.raise_for_status()
+
         data = response.json()
         errors = data.get('errors')
+
         if errors is None or len(errors) == 0 or errors[0] == "No products were found.":
-            print(f'SUCCESS on request {url}, {kwargs}')
-            return data
+            del data['errors']
         else:
             print(f'ERRORS: {data["errors"]} on request {url}, {kwargs}')
+
+        return data
     except RequestException as e:
         print(e)
 
+        return {}
 
-class TCGPlayerApiService:
+
+class TCGPlayerCatalogService:
     def __init__(self):
         self.lock = Lock()
         self.access_token = None
@@ -59,19 +68,19 @@ class TCGPlayerApiService:
         return _fetch_tcgplayer_resource(
             f'{TCGPLAYER_CATALOG_METADATA_URL}/printings',
             headers=self.get_authorization_headers()
-        )
+        ).get('results', [])
 
     def get_card_conditions(self) -> dict:
         return _fetch_tcgplayer_resource(
             f'{TCGPLAYER_CATALOG_METADATA_URL}/conditions',
             headers=self.get_authorization_headers()
-        )
+        ).get('results', [])
 
     def get_card_rarities(self):
         return _fetch_tcgplayer_resource(
             f'{TCGPLAYER_CATALOG_METADATA_URL}/rarities',
             headers=self.get_authorization_headers()
-        )
+        ).get('results', [])
 
     def get_sets(self, offset, limit):
         query_params = {
@@ -81,9 +90,9 @@ class TCGPlayerApiService:
 
         return _fetch_tcgplayer_resource(
             f'{TCGPLAYER_CATALOG_METADATA_URL}/groups',
-            headers= self.get_authorization_headers(),
+            headers=self.get_authorization_headers(),
             params=query_params,
-        )
+        ).get('results', [])
 
     def get_cards(self, offset, limit, set_id=None):
         query_params = {
@@ -100,9 +109,9 @@ class TCGPlayerApiService:
 
         return _fetch_tcgplayer_resource(
             f'{TCGPLAYER_CATALOG_URL}/products',
-            headers= self.get_authorization_headers(),
+            headers=self.get_authorization_headers(),
             params=query_params
-        )
+        ).get('results', [])
 
     def get_sku_prices(self, sku_ids: list):
         return _fetch_tcgplayer_resource(
@@ -110,30 +119,64 @@ class TCGPlayerApiService:
             headers=self.get_authorization_headers(),
         )
 
+    def get_total_card_set_count(self) -> Optional[int]:
+        query_params = {
+            'offset': 0,
+            'limit': 1,
+        }
+
+        return _fetch_tcgplayer_resource(
+            f'{TCGPLAYER_CATALOG_METADATA_URL}/groups',
+            headers=self.get_authorization_headers(),
+            params=query_params,
+        ).get('totalItems', 0)
+
+    def fetch_total_card_count(self, set_id=None) -> Optional[int]:
+        query_params = {
+            'getExtendedFields': "true",
+            'includeSkus': "true",
+            'productTypes': ["Cards"],
+            'offset': 0,
+            'limit': 1,
+            'categoryId': TCGPLAYER_CATEGORY_ID,
+        }
+
+        if set_id is not None:
+            query_params['groupId'] = set_id
+
+        try:
+            return _fetch_tcgplayer_resource(
+                f'{TCGPLAYER_CATALOG_URL}/products',
+                headers=self.get_authorization_headers(),
+                params=query_params
+            ).get('totalItems', 0)
+        except Exception as e:
+            print(f"SET ID IS: {set_id}")
+
     def _check_and_refresh_access_token(self) -> bool:
         if access_token_expired(self.access_token_expiry):
-            print("ACCESS TOKEN EXPIRED: Fetching new one")
+            logging.debug("ACCESS TOKEN EXPIRED: Fetching new one")
             client_id = os.environ.get("TCGPLAYER_CLIENT_ID")
             client_secret = os.environ.get("TCGPLAYER_CLIENT_SECRET")
 
             try:
                 response = requests.post(
-                        TCGPLAYER_ACCESS_TOKEN_URL,
-                        data={
-                            'grant_type': "client_credentials",
-                            'client_id': client_id,
-                            'client_secret': client_secret,
-                        }
+                    TCGPLAYER_ACCESS_TOKEN_URL,
+                    data={
+                        'grant_type': "client_credentials",
+                        'client_id': client_id,
+                        'client_secret': client_secret,
+                    }
                 )
                 data = response.json()
                 self.access_token = data['access_token']
                 self.access_token_expiry = data['.expires']
 
-                print("UPDATING ACCESS TOKEN")
+                logging.debug("UPDATING ACCESS TOKEN")
 
                 return True
-            except RequestException:
-                print('Connection Error')
+            except RequestException as e:
+                logging.debug(e)
                 return False
         else:
             return True

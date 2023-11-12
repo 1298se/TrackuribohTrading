@@ -1,7 +1,5 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 
-import pytz
-from bson import CodecOptions
 from pymongo import MongoClient
 
 

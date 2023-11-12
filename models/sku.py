@@ -2,9 +2,10 @@ from sqlalchemy import Column, Integer, ForeignKey, SmallInteger
 from sqlalchemy.orm import relationship
 
 from models import Base
+from jobs.types import SKUResponse
 
 
-class Sku(Base):
+class SKU(Base):
     __tablename__ = "sku"
 
     id = Column(Integer, primary_key=True)
@@ -16,8 +17,8 @@ class Sku(Base):
     condition = relationship("Condition")
 
     @staticmethod
-    def from_tcgplayer_response(response: dict):
-        return Sku(
+    def from_tcgplayer_response(response: SKUResponse):
+        return SKU(
             id=response['skuId'],
             card_id=response['productId'],
             printing_id=response['printingId'],

@@ -1,7 +1,10 @@
+from typing import List
+
 from sqlalchemy import Column, Integer, String, ForeignKey, SmallInteger, Text
 from sqlalchemy.orm import relationship, Session
 
 from models import Base
+from jobs.types import CardExtendedData, CardResponse
 
 
 class Card(Base):
@@ -17,8 +20,8 @@ class Card(Base):
     set = relationship("Set", back_populates="cards")
     number = Column(String(255), index=True)
     # Ultra rare
-    rarity_id = Column(SmallInteger, ForeignKey("rarity.id"), nullable=True)
-    rarity = relationship("Rarity")
+    # For some reason, the catalog endpoint for fetching rarities doesn't give us all possible card rarities...
+    rarity_name = Column(String(255), index=True)
     # LIGHT
     attribute = Column(String(255))
     # Normal Monster
@@ -28,18 +31,16 @@ class Card(Base):
     attack = Column(String(255))
     defense = Column(String(255))
     description = Column(Text)
-    skus = relationship("Sku", back_populates="card")
+    skus = relationship("SKU", back_populates="card")
+    sales = relationship("CardSale", back_populates="card")
 
     @staticmethod
-    def parse_extended_data(extended_data: list) -> dict:
+    def parse_extended_data(extended_data: List[CardExtendedData]) -> dict:
         return {data['name']: data['value'] for data in extended_data}
 
     @staticmethod
-    def from_tcgplayer_response(response: dict, session: Session):
-        from models.rarity import Rarity
-
+    def from_tcgplayer_response(response: CardResponse):
         card_metadata = Card.parse_extended_data(response['extendedData'])
-        rarity = session.query(Rarity).filter_by(name=card_metadata.get('Rarity')).one_or_none()
 
         return Card(
             id=response['productId'],
@@ -48,7 +49,7 @@ class Card(Base):
             image_url=response['imageUrl'],
             set_id=response['groupId'],
             number=card_metadata.get('Number'),
-            rarity_id=rarity.id if rarity is not None else None,
+            rarity_name=card_metadata.get('Rarity', None),
             attribute=card_metadata.get('Attribute'),
             card_type=card_metadata.get('Card Type'),
             monster_type=card_metadata.get('MonsterType'),

@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 python-dotenv = "==0.20.0"
 sqlalchemy = "==1.4.44"
-mysqlclient = "==2.1.1"
 requests = "==2.27.1"
 certifi = "==2022.9.24"
 charset-normalizer = "==2.0.0"
@@ -18,11 +17,13 @@ six = "==1.16.0"
 tzdata = "==2022.6"
 tzlocal = "==4.2"
 urllib3 = "==1.26.12"
-pymongo = "*"
 pandas = "*"
 statsmodels = "*"
-traces = "*"
 matplotlib = "*"
+requests-ip-rotator = "*"
+psycopg2 = "*"
+apscheduler = "*"
+sentry-sdk = "*"
 
 [dev-packages]
 
