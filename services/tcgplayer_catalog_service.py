@@ -5,8 +5,9 @@ from typing import Optional
 
 import requests
 from threading import Lock
-from requests import RequestException
 import logging
+
+logger = logging.getLogger(__name__)
 
 TCGPLAYER_CATEGORY_ID = 2
 TCGPLAYER_BASE_URL = "https://api.tcgplayer.com"
@@ -40,11 +41,11 @@ def _fetch_tcgplayer_resource(url, **kwargs):
         if errors is None or len(errors) == 0 or errors[0] == "No products were found.":
             del data['errors']
         else:
-            print(f'ERRORS: {data["errors"]} on request {url}, {kwargs}')
+            logger.error(errors, extra=dict(url=url))
 
         return data
-    except RequestException as e:
-        print(e)
+    except requests.RequestException as e:
+        logger.exception(e, extra=dict(url=url))
 
         return {}
 
@@ -144,14 +145,11 @@ class TCGPlayerCatalogService:
         if set_id is not None:
             query_params['groupId'] = set_id
 
-        try:
-            return _fetch_tcgplayer_resource(
-                f'{TCGPLAYER_CATALOG_URL}/products',
-                headers=self.get_authorization_headers(),
-                params=query_params
-            ).get('totalItems', 0)
-        except Exception as e:
-            print(f"SET ID IS: {set_id}")
+        return _fetch_tcgplayer_resource(
+            f'{TCGPLAYER_CATALOG_URL}/products',
+            headers=self.get_authorization_headers(),
+            params=query_params
+        ).get('totalItems', 0)
 
     def _check_and_refresh_access_token(self) -> bool:
         if access_token_expired(self.access_token_expiry):
@@ -172,11 +170,12 @@ class TCGPlayerCatalogService:
                 self.access_token = data['access_token']
                 self.access_token_expiry = data['.expires']
 
-                logging.debug("UPDATING ACCESS TOKEN")
+                logger.debug("Updated access token")
 
                 return True
-            except RequestException as e:
-                logging.debug(e)
+            except requests.RequestException as e:
+                logger.debug(e)
+
                 return False
         else:
             return True

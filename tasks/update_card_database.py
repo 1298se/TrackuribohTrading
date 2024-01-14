@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from sqlalchemy import inspect
@@ -9,12 +10,18 @@ from models.condition import Condition
 from models.printing import Printing
 from models.set import Set
 from models.sku import SKU
-from jobs.utils import paginate
 from services.tcgplayer_catalog_service import TCGPlayerCatalogService
+from tasks import scheduler
+from tasks.log_runtime_decorator import log_runtime
+from tasks.set_card_sync_data import set_card_sync_data
+from tasks.utils import paginateWithBackoff
 
+logger = logging.getLogger(__name__)
 tcgplayer_catalog_service = TCGPlayerCatalogService()
 
 db_session = db_sessionmaker()
+
+PAGINATION_SIZE = 100
 
 
 def _to_dict(model):
@@ -70,10 +77,10 @@ def _fetch_cards_in_set(set_id: int) -> list:
     set_card_count = tcgplayer_catalog_service.fetch_total_card_count(set_id)
     set_cards = []
 
-    paginate(
+    paginateWithBackoff(
         total=set_card_count,
-        paginate_fn=lambda offset, limit: tcgplayer_catalog_service.get_cards(offset, limit, set_id),
-        pagination_size=100,
+        paginate_fn=lambda offset: tcgplayer_catalog_service.get_cards(offset, PAGINATION_SIZE, set_id),
+        pagination_size=PAGINATION_SIZE,
         on_paginated=lambda card_responses: set_cards.extend(card_responses),
         # on_paginated_failure=lambda card_responses: delete_set_by_id(set_id)
     )
@@ -81,9 +88,8 @@ def _fetch_cards_in_set(set_id: int) -> list:
     return set_cards
 
 
+@log_runtime
 def update_card_database():
-    print(f'{__name__} started at {datetime.now()}')
-
     printing_responses = tcgplayer_catalog_service.get_card_printings()
     condition_responses = tcgplayer_catalog_service.get_card_conditions()
     # rarity_responses = tcgplayer_catalog_service.get_card_rarities()
@@ -114,14 +120,14 @@ def update_card_database():
 
     outdated_sets = []
 
-    paginate(
+    paginateWithBackoff(
         total=set_total_count,
-        paginate_fn=tcgplayer_catalog_service.get_sets,
-        pagination_size=100,
+        paginate_fn=lambda offset: tcgplayer_catalog_service.get_sets(offset, PAGINATION_SIZE),
+        pagination_size=PAGINATION_SIZE,
         on_paginated=lambda set_responses: _add_updated_set_models(outdated_sets, set_responses),
     )
 
-    print(f'{len(outdated_sets)} sets are oudated: {[outdated_set.name for outdated_set in outdated_sets]}')
+    logger.info(f'{len(outdated_sets)} sets are outdated: {[outdated_set.name for outdated_set in outdated_sets]}')
 
     if len(outdated_sets) > 0:
         insert_outdated_sets_stmt = insert(Set).values(
@@ -137,15 +143,14 @@ def update_card_database():
 
     # We want to "paginate" on all the card sets and fetch the cards in each set. Hence, we call paginate
     # with pagination_size=1.
-    paginate(
+    paginateWithBackoff(
         total=len(outdated_sets),
-        paginate_fn=lambda offset, limit: _fetch_cards_in_set(outdated_sets[offset].id),
+        paginate_fn=lambda offset: _fetch_cards_in_set(outdated_sets[offset].id),
         pagination_size=1,
         on_paginated=lambda card_responses: _convert_and_insert_cards_and_skus(card_responses),
     )
 
     db_session.commit()
-    print(f'{__name__} done at {datetime.now()}')
 
 
 if __name__ == "__main__":

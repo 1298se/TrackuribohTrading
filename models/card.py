@@ -1,10 +1,11 @@
 from typing import List
 
-from sqlalchemy import Column, Integer, String, ForeignKey, SmallInteger, Text
+import eventlet
+from sqlalchemy import Column, Integer, String, ForeignKey, SmallInteger, Text, DDL, event
 from sqlalchemy.orm import relationship, Session
 
 from models import Base
-from jobs.types import CardExtendedData, CardResponse
+from tasks.types import CardExtendedData, CardResponse
 
 
 class Card(Base):
@@ -57,3 +58,30 @@ class Card(Base):
             defense=card_metadata.get('Defense'),
             description=card_metadata.get('Description'),
         )
+
+
+# Not fetching card sale data for now...
+# # Define the trigger as a raw SQL statement
+# trigger = DDL("""
+# CREATE OR REPLACE FUNCTION insert_card_sync_data()
+# RETURNS TRIGGER AS $$
+# BEGIN
+#     -- Insert with a default sync frequency of 'LOW'
+#     INSERT INTO card_sync_data (card_id, sync_frequency)
+#     VALUES (NEW.id, 1);
+#     RETURN NEW;
+# END;
+# $$ LANGUAGE plpgsql;
+#
+# CREATE TRIGGER insert_card_sync_data_trigger
+# AFTER INSERT ON card
+# FOR EACH ROW EXECUTE FUNCTION insert_card_sync_data();
+# """)
+#
+#
+# # Attach the trigger to the Card table
+# event.listen(
+#     Card.__table__,
+#     'after_create',
+#     trigger.execute_if(dialect='postgresql')
+# )

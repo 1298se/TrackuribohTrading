@@ -1,11 +1,10 @@
 from typing import TypedDict, List
 
 
-class CardListingRequestData(TypedDict):
+class CardRequestData(TypedDict):
     product_id: int
-    condition: str
-    printing: str
-    sku_id: int
+    conditions: List[str]
+    printings: List[str]
 
 
 class SKUListingResponse(TypedDict):

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, SmallInteger, String
 
 from models import Base
-from jobs.types import PrintingResponse
+from tasks.types import PrintingResponse
 
 
 class Printing(Base):

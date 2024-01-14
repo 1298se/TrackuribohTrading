@@ -1,8 +1,12 @@
+import functools
 import logging
+import time
+
 import sentry_sdk
+from apscheduler.schedulers.blocking import BlockingScheduler
 from sentry_sdk.integrations.logging import LoggingIntegration
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 sentry_sdk.init(
     dsn="https://b4c75638f0b0c1048390ff7a3b0fb352@o4506209812873216.ingest.sentry.io/4506209838366720",
@@ -20,3 +24,6 @@ sentry_sdk.init(
         )
     ]
 )
+
+scheduler = BlockingScheduler()
+logger = logging.getLogger(__name__)

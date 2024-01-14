@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, DateTime, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 
 from models import Base
-from jobs.types import SKUListingResponse
+from tasks.types import SKUListingResponse
 
 
 class SKUListing(Base):
@@ -20,11 +20,11 @@ class SKUListing(Base):
     seller_shipping_price = Column(Numeric(precision=10, scale=2))  # Numeric for seller_shipping_price
 
     @staticmethod
-    def from_tcgplayer_response(response: SKUListingResponse, timestamp, sku_id):
+    def from_tcgplayer_response(response: SKUListingResponse, timestamp):
         return SKUListing(
             id=response['listingId'],
             timestamp=timestamp,
-            sku_id=sku_id,
+            sku_id=response['productConditionId'],
             verified_seller=response['verifiedSeller'],
             gold_seller=response['goldSeller'],
             quantity=response['quantity'],

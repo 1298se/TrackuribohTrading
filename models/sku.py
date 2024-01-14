@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, ForeignKey, SmallInteger
 from sqlalchemy.orm import relationship
 
 from models import Base
-from jobs.types import SKUResponse
+from tasks.types import SKUResponse
 
 
 class SKU(Base):

@@ -1,18 +1,12 @@
-import math
-from collections.abc import Set
+import logging
 from datetime import datetime
-from json import JSONDecodeError
 from types import MappingProxyType
-from typing import List, Tuple, Dict
+from typing import List
 
 import requests
-import logging
 
-from sqlalchemy import DateTime
-
+from tasks.types import CardRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
 from models.card_sale import CardSale
-from jobs.types import CardListingRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
-from jobs.utils import paginate
 
 LISTING_PAGINATION_SIZE = 50
 
@@ -40,8 +34,8 @@ BASE_HEADERS = MappingProxyType({
 def get_product_active_listings_request_payload(
         offset: int,
         limit: int,
-        printing: str,
-        condition: str,
+        printings: List[str],
+        conditions: List[str],
 ):
     return {
         "filters": {
@@ -51,12 +45,8 @@ def get_product_active_listings_request_payload(
                 "language": [
                     "English"
                 ],
-                "printing": [
-                    printing,
-                ],
-                "condition": [
-                    condition,
-                ],
+                "printing": printings,
+                "condition": conditions,
                 "listingType": "standard"
             },
             "range": {
@@ -92,8 +82,8 @@ def get_sales_request_payload(count: int, offset: int, listing_type: str):
 
 
 def get_product_active_listings(
-        request: CardListingRequestData,
-) -> tuple[int, list[SKUListingResponse]]:
+        request: CardRequestData,
+) -> list[SKUListingResponse]:
     product_id = request['product_id']
     listings = {}
     url = BASE_LISTINGS_URL % product_id
@@ -103,37 +93,33 @@ def get_product_active_listings(
         payload = get_product_active_listings_request_payload(
             offset=cur_offset,
             limit=LISTING_PAGINATION_SIZE,
-            printing=request['printing'],
-            condition=request['condition'],
+            printings=request['printings'],
+            conditions=request['conditions'],
         )
 
         response = requests.post(url=url, json=payload, headers=BASE_HEADERS)
 
-        try:
-            response.raise_for_status()
-            data = response.json()
+        response.raise_for_status()
 
-            listing_data = data['results'][0]
-            total_listings = listing_data['totalResults']
-            results = listing_data['results']
+        data = response.json()
 
-            # We put the results in a set because due to data updates pagination might give us the same listing on
-            # adjacent pages
-            listings.update([(result['listingId'], result) for result in results])
+        listing_data = data['results'][0]
+        total_listings = listing_data['totalResults']
+        results = listing_data['results']
 
-            cur_offset += len(results)
+        # We put the results in a set because due to data updates pagination might give us the same listing on
+        # adjacent pages
+        listings.update([(result['listingId'], result) for result in results])
 
-            if cur_offset >= total_listings:
-                break
+        cur_offset += len(results)
 
-        except requests.exceptions.HTTPError as e:
-            print(e)
+        if cur_offset >= total_listings:
             break
 
-    return request['sku_id'], list(listings.values())
+    return list(listings.values())
 
 
-def get_sales(request: CardListingRequestData, most_recent_sale: datetime) -> tuple[int, list[CardSaleResponse]]:
+def get_sales(request: CardRequestData, most_recent_sale: datetime) -> tuple[int, list[CardSaleResponse]]:
     sales = []
     product_id = request['product_id']
 
@@ -145,52 +131,20 @@ def get_sales(request: CardListingRequestData, most_recent_sale: datetime) -> tu
 
         response = requests.post(url=url, json=payload, headers=BASE_HEADERS)
 
-        try:
-            response.raise_for_status()
-            data: CardSalesResponse = response.json()
+        response.raise_for_status()
 
-            has_new_sales = True
+        data: CardSalesResponse = response.json()
 
-            for sale_response in data['data']:
-                if most_recent_sale is not None and \
-                        CardSale.parse_response_order_date(sale_response['orderDate']) <= most_recent_sale:
-                    has_new_sales = False
-                else:
-                    sales.append(sale_response)
+        has_new_sales = True
 
-            if data['nextPage'] == "" or not has_new_sales:
-                break
+        for sale_response in data['data']:
+            if most_recent_sale is not None and \
+                    CardSale.parse_response_order_date(sale_response['orderDate']) <= most_recent_sale:
+                has_new_sales = False
+            else:
+                sales.append(sale_response)
 
-        except requests.exceptions.HTTPError as e:
-            print(e)
+        if data['nextPage'] == "" or not has_new_sales:
             break
 
     return product_id, sales
-
-# def filter_duplicate_sales(product_id: int, sale_results: {}, sales_repository: TCGPlayerSalesRepository) -> []:
-#     latest_sale_timestamp = sales_repository.get_product_latest_sale_date(product_id, sale_results['condition'],
-#                                                                           sale_results['printing'])
-#     filtered_sales = list(filter(lambda x: x['orderDate'] > latest_sale_timestamp, sale_results['sales']))
-#     return filtered_sales
-#
-#
-# def __get_sales(item_id: int, count: int, offset: int, config: {}) -> ([any], bool):
-#     url, data = get_sales_request_payload(
-#         item_id=item_id,
-#         count=count,
-#         offset=offset,
-#         listing_type="ListingWithoutPhotos",
-#     )
-#
-#     logging.debug(url)
-#     try:
-#         result = requests.post(url=url, json=data, headers=BASE_HEADERS).json()
-#     except JSONDecodeError as e:
-#         logging.debug(e)
-#         return [], False
-#
-#     sales = result["data"]
-#     has_more = result["nextPage"] == 'Yes'
-#     return sales, has_more
-#
-#

@@ -5,14 +5,14 @@ from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from models import Base
-from jobs.types import CardSaleResponse
+from tasks.types import CardSaleResponse
 
 
 class CardSale(Base):
     __tablename__ = 'card_sales'
 
     id = Column(Integer, primary_key=True)
-    order_date = Column(DateTime(timezone=True))
+    order_date = Column(DateTime(), primary_key=True)
     printing_name = Column(String(255), ForeignKey('printing.name'))
     printing = relationship("Printing")
     condition_name = Column(String(255), ForeignKey('condition.name'))
