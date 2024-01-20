@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
-from typing import Optional, List
 
-from sqlalchemy import DateTime, and_, desc, func, text, asc
+from sqlalchemy import and_, desc, func, asc
 from sqlalchemy.orm import Session, Query
 
 from models import db_sessionmaker, SKUListingsBatchAggregateData, SKU

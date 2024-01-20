@@ -1,6 +1,4 @@
-import functools
 import logging
-import time
 
 import sentry_sdk
 from apscheduler.schedulers.blocking import BlockingScheduler

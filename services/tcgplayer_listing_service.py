@@ -1,12 +1,11 @@
-import logging
 from datetime import datetime
 from types import MappingProxyType
 from typing import List
 
 import requests
 
-from tasks.types import CardRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
 from models.card_sale import CardSale
+from tasks.types import CardRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
 
 LISTING_PAGINATION_SIZE = 50
 

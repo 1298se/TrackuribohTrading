@@ -1,7 +1,6 @@
 from typing import List
 
-import eventlet
-from sqlalchemy import Column, Integer, String, ForeignKey, SmallInteger, Text, DDL, event
+from sqlalchemy import Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base

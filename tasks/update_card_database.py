@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import insert
@@ -11,9 +10,7 @@ from models.printing import Printing
 from models.set import Set
 from models.sku import SKU
 from services.tcgplayer_catalog_service import TCGPlayerCatalogService
-from tasks import scheduler
 from tasks.log_runtime_decorator import log_runtime
-from tasks.set_card_sync_data import set_card_sync_data
 from tasks.utils import paginateWithBackoff
 
 logger = logging.getLogger(__name__)
