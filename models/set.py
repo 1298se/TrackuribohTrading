@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 
 from models import Base
-from tasks.types import CardSetResponse
+from tasks.custom_types import CardSetResponse
 
 
 class Set(Base):

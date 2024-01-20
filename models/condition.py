@@ -1,7 +1,7 @@
 from sqlalchemy import SmallInteger, Column, String
 
 from models import Base
-from tasks.types import ConditionResponse
+from tasks.custom_types import ConditionResponse
 
 
 class Condition(Base):

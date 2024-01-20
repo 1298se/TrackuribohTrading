@@ -5,7 +5,7 @@ from typing import List
 import requests
 
 from models.card_sale import CardSale
-from tasks.types import CardRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
+from tasks.custom_types import CardRequestData, CardSalesResponse, CardSaleResponse, SKUListingResponse
 
 LISTING_PAGINATION_SIZE = 50
 

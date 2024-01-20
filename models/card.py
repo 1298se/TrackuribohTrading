@@ -4,7 +4,7 @@ from sqlalchemy import Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base
-from tasks.types import CardExtendedData, CardResponse
+from tasks.custom_types import CardExtendedData, CardResponse
 
 
 class Card(Base):

@@ -8,7 +8,7 @@ from models.sku_listing import SKUListing
 from models.sku_listings_batch_aggregate_data import SKUListingsBatchAggregateData
 from services.tcgplayer_listing_service import get_product_active_listings
 from tasks.log_runtime_decorator import log_runtime
-from tasks.types import CardRequestData, SKUListingResponse
+from tasks.custom_types import CardRequestData, SKUListingResponse
 from tasks.utils import paginateWithBackoff
 
 logger = logging.getLogger(__name__)

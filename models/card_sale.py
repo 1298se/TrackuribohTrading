@@ -5,7 +5,7 @@ from sqlalchemy import Integer, String, Numeric, DateTime, ForeignKey
 from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base
-from tasks.types import CardSaleResponse
+from tasks.custom_types import CardSaleResponse
 
 
 class CardSale(Base):

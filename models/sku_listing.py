@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, Da
 from sqlalchemy.orm import relationship
 
 from models import Base
-from tasks.types import SKUListingResponse
+from tasks.custom_types import SKUListingResponse
 
 
 class SKUListing(Base):

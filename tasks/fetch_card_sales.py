@@ -4,7 +4,7 @@ from models.card_sync_data import SyncFrequency, CardSyncData
 from services.tcgplayer_listing_service import get_sales
 from tasks import scheduler
 from tasks.set_card_sync_data import set_card_sync_data
-from tasks.types import CardSaleResponse
+from tasks.custom_types import CardSaleResponse
 from tasks.utils import paginateWithBackoff
 
 session = db_sessionmaker()
