@@ -6,11 +6,11 @@ name = "pypi"
 [packages]
 sqlalchemy = "*"
 requests = "*"
-psycopg2 = "*"
 sentry-sdk = "*"
 numpy = "*"
 sqlalchemy-timescaledb = "*"
 apscheduler = "*"
 python-dotenv = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
