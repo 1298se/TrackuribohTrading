@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, ForeignKey, SmallInteger
-from sqlalchemy.orm import relationship
+from sqlalchemy import Integer, ForeignKey, SmallInteger
+from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base
 from tasks.types import SKUResponse
@@ -8,12 +8,12 @@ from tasks.types import SKUResponse
 class SKU(Base):
     __tablename__ = "sku"
 
-    id = Column(Integer, primary_key=True)
-    card_id = Column(Integer, ForeignKey('card.id'), nullable=False)
+    id = mapped_column(Integer, primary_key=True)
+    card_id = mapped_column(Integer, ForeignKey('card.id'), nullable=False)
     card = relationship("Card", back_populates="skus")
-    printing_id = Column(SmallInteger, ForeignKey('printing.id'))
+    printing_id = mapped_column(SmallInteger, ForeignKey('printing.id'))
     printing = relationship("Printing")
-    condition_id = Column(SmallInteger, ForeignKey('condition.id'))
+    condition_id = mapped_column(SmallInteger, ForeignKey('condition.id'))
     condition = relationship("Condition")
 
     @staticmethod

@@ -2,7 +2,7 @@ from typing import List
 
 import eventlet
 from sqlalchemy import Column, Integer, String, ForeignKey, SmallInteger, Text, DDL, event
-from sqlalchemy.orm import relationship, Session
+from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base
 from tasks.types import CardExtendedData, CardResponse
@@ -11,27 +11,27 @@ from tasks.types import CardExtendedData, CardResponse
 class Card(Base):
     __tablename__ = "card"
 
-    id = Column(Integer, primary_key=True)
+    id = mapped_column(Integer, primary_key=True)
     # Blue-Eyes White Dragon
-    name = Column(String(255), index=True)
+    name = mapped_column(String(255), index=True)
     # name but without hyphens, semicolons, etc
-    clean_name = Column(String(255), index=True)
-    image_url = Column(String(255))
-    set_id = Column(Integer, ForeignKey("set.id"), nullable=False)
+    clean_name = mapped_column(String(255), index=True)
+    image_url = mapped_column(String(255))
+    set_id = mapped_column(Integer, ForeignKey("set.id"), nullable=False)
     set = relationship("Set", back_populates="cards")
-    number = Column(String(255), index=True)
+    number = mapped_column(String(255), index=True)
     # Ultra rare
     # For some reason, the catalog endpoint for fetching rarities doesn't give us all possible card rarities...
-    rarity_name = Column(String(255), index=True)
+    rarity_name = mapped_column(String(255), index=True)
     # LIGHT
-    attribute = Column(String(255))
+    attribute = mapped_column(String(255))
     # Normal Monster
-    card_type = Column(String(255))
+    card_type = mapped_column(String(255))
     # Dragon
-    monster_type = Column(String(255))
-    attack = Column(String(255))
-    defense = Column(String(255))
-    description = Column(Text)
+    monster_type = mapped_column(String(255))
+    attack = mapped_column(String(255))
+    defense = mapped_column(String(255))
+    description = mapped_column(Text)
     skus = relationship("SKU", back_populates="card")
     sales = relationship("CardSale", back_populates="card")
 

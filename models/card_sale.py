@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, mapped_column
 
 from models import Base
 from tasks.types import CardSaleResponse
@@ -11,18 +11,18 @@ from tasks.types import CardSaleResponse
 class CardSale(Base):
     __tablename__ = 'card_sales'
 
-    id = Column(Integer, primary_key=True)
-    order_date = Column(DateTime(), primary_key=True)
-    printing_name = Column(String(255), ForeignKey('printing.name'))
+    id = mapped_column(Integer, primary_key=True)
+    order_date = mapped_column(DateTime(), primary_key=True)
+    printing_name = mapped_column(String(255), ForeignKey('printing.name'))
     printing = relationship("Printing")
-    condition_name = Column(String(255), ForeignKey('condition.name'))
+    condition_name = mapped_column(String(255), ForeignKey('condition.name'))
     condition = relationship("Condition")
-    card_id = Column(Integer, ForeignKey('card.id'), nullable=False)
+    card_id = mapped_column(Integer, ForeignKey('card.id'), nullable=False)
     card = relationship("Card", back_populates="sales")
-    quantity = Column(Integer)
-    listing_type = Column(String(50))
-    purchase_price = Column(Numeric(precision=10, scale=2))  # Numeric type for prices
-    shipping_price = Column(Numeric(precision=10, scale=2))  # Numeric type for prices
+    quantity = mapped_column(Integer)
+    listing_type = mapped_column(String(50))
+    purchase_price = mapped_column(Numeric(precision=10, scale=2))  # Numeric type for prices
+    shipping_price = mapped_column(Numeric(precision=10, scale=2))  # Numeric type for prices
 
     @staticmethod
     def from_tcgplayer_response(response: CardSaleResponse, card_id: int):

@@ -4,7 +4,7 @@ from typing import Optional, List
 from sqlalchemy import DateTime, and_, desc, func, text, asc
 from sqlalchemy.orm import Session, Query
 
-from models import db_sessionmaker, SKUListingsBatchAggregateData
+from models import db_sessionmaker, SKUListingsBatchAggregateData, SKU
 from models.card_sale import CardSale
 
 
@@ -24,15 +24,22 @@ def get_top_lowest_listing_price_changes_past_3_days(session: Session):
     start_date = datetime.now() - timedelta(days=3)
 
     return session.query(
+        SKU.card_id,
         SKUListingsBatchAggregateData.sku_id,
-        (func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp) -
-        func.last(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp))
+        ((func.last(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp) -
+         func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp)) /
+         func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp))
             .label("price_change"),
-    ).filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
-        .group_by(SKUListingsBatchAggregateData.sku_id) \
+    ).join(SKUListingsBatchAggregateData.sku) \
+        .filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
+        .group_by(SKU.card_id, SKUListingsBatchAggregateData.sku_id) \
         .order_by(desc("price_change")) \
         .limit(20) \
         .all()
+
+def get_skus(session: Session):
+
+    return session.query(SKU).join(SKUListingsBatchAggregateData.sku)
 
 
 def query_most_recent_lowest_listing_price(session: Session, card_id) -> Query:
@@ -50,4 +57,5 @@ def query_most_recent_lowest_listing_price(session: Session, card_id: int, delta
 
 
 if __name__ == "__main__":
+    # print(get_skus(db_sessionmaker()))
     print(get_top_lowest_listing_price_changes_past_3_days(session=db_sessionmaker()))

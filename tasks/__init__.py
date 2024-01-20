@@ -25,5 +25,8 @@ sentry_sdk.init(
     ]
 )
 
-scheduler = BlockingScheduler()
+scheduler = BlockingScheduler(
+    job_defaults={'misfire_grace_time': 60}
+)
+
 logger = logging.getLogger(__name__)
