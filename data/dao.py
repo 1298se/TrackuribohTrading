@@ -37,7 +37,7 @@ def get_past_top_listings_by_copies_delta(session: Session, delta: timedelta):
         .join(SKU, SKU.id == copies_delta_subquery.c.sku_id) \
         .filter(copies_delta_subquery.c.copies_delta > 0) \
         .order_by(desc(copies_delta_subquery.c.copies_delta)) \
-        .all()
+        .limit(20)
 
 
 # def get_top_lowest_listing_price_changes_past_3_days(session: Session):
