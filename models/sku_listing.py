@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, DateTime, ForeignKeyConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, column_property
 
 from models import Base
 from tasks.custom_types import SKUListingResponse
@@ -18,6 +18,8 @@ class SKUListing(Base):
     seller_name = Column(String)
     price = Column(Numeric(precision=10, scale=2))  # Numeric for price
     seller_shipping_price = Column(Numeric(precision=10, scale=2))  # Numeric for seller_shipping_price
+
+    total_price = column_property(price + seller_shipping_price)
 
     @staticmethod
     def from_tcgplayer_response(response: SKUListingResponse, timestamp):

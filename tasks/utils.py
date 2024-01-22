@@ -1,6 +1,9 @@
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable, Any
+from typing import Callable, Any, List
+from urllib.parse import urlencode
+
+from models import SKU
 
 MAX_PARALLEL_NETWORK_REQUESTS = 48
 
@@ -61,3 +64,21 @@ def paginateWithBackoff(
 
                         for offset in retry_offsets
                     }
+
+
+def split_into_segments(array, num_segments) -> List[List[Any]]:
+    """Splits the array into the specified number of segments."""
+    if num_segments <= 0:
+        raise ValueError("Number of segments must be positive")
+
+    segment_size = len(array) // num_segments
+    remainder = len(array) % num_segments
+
+    segments = []
+    start = 0
+    for i in range(num_segments):
+        end = start + segment_size + (1 if i < remainder else 0)
+        segments.append(array[start:end])
+        start = end
+
+    return segments
