@@ -21,22 +21,22 @@ def get_sales_count_since_date(session: Session, card_id: int, date: datetime):
     ).scalar()
 
 
-def get_past_top_listings_by_copies_delta(session: Session, delta: timedelta):
+def get_past_top_listings_by_listings_delta(session: Session, delta: timedelta):
     start_date = datetime.now() - delta
 
     copies_delta_subquery = session.query(
         SKUListingsBatchAggregateData.sku_id,
-        (func.first(SKUListingsBatchAggregateData.total_copies_count, SKUListingsBatchAggregateData.timestamp) -
-         func.last(SKUListingsBatchAggregateData.total_copies_count, SKUListingsBatchAggregateData.timestamp))
-            .label("copies_delta"),
+        (func.first(SKUListingsBatchAggregateData.total_listings_count, SKUListingsBatchAggregateData.timestamp) -
+         func.last(SKUListingsBatchAggregateData.total_listings_count, SKUListingsBatchAggregateData.timestamp))
+            .label("listings_delta"),
     ).filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
         .group_by(SKUListingsBatchAggregateData.sku_id) \
         .subquery()
 
-    return session.query(SKU, copies_delta_subquery.c.copies_delta) \
+    return session.query(SKU, copies_delta_subquery.c.listings_delta) \
         .join(SKU, SKU.id == copies_delta_subquery.c.sku_id) \
-        .filter(copies_delta_subquery.c.copies_delta > 0) \
-        .order_by(desc(copies_delta_subquery.c.copies_delta)) \
+        .filter(copies_delta_subquery.c.listings_delta > 0) \
+        .order_by(desc(copies_delta_subquery.c.listings_delta)) \
         .limit(20)
 
 
@@ -84,7 +84,7 @@ def query_latest_listings(session: Session) -> List[SKUListing]:
 
 
 if __name__ == "__main__":
-    for sku, copies_delta in get_past_top_listings_by_copies_delta(session=db_sessionmaker(), delta=timedelta(days=1)):
+    for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=1)):
         card = sku.card
 
         parameters = urlencode(
