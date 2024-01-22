@@ -37,7 +37,7 @@ def get_past_top_listings_by_listings_delta(session: Session, delta: timedelta):
         .join(SKU, SKU.id == copies_delta_subquery.c.sku_id) \
         .filter(copies_delta_subquery.c.listings_delta > 0) \
         .order_by(desc(copies_delta_subquery.c.listings_delta)) \
-        .limit(20)
+        .limit(30)
 
 
 # def get_top_lowest_listing_price_changes_past_3_days(session: Session):
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         )
 
         print(
-            f"{sku.id} {card.name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
+            f"{card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
             f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
         )
 
