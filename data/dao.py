@@ -29,7 +29,7 @@ def get_past_top_listings_by_copies_delta(session: Session, delta: timedelta):
         (func.first(SKUListingsBatchAggregateData.total_copies_count, SKUListingsBatchAggregateData.timestamp) -
          func.last(SKUListingsBatchAggregateData.total_copies_count, SKUListingsBatchAggregateData.timestamp))
             .label("copies_delta"),
-    ).filter(and_(SKUListingsBatchAggregateData.timestamp >= start_date)) \
+    ).filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
         .group_by(SKUListingsBatchAggregateData.sku_id) \
         .subquery()
 
