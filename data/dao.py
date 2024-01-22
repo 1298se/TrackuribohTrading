@@ -95,7 +95,7 @@ if __name__ == "__main__":
         )
 
         print(
-            f"{card.name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
+            f"{sku.id} {card.name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
             f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
         )
 
