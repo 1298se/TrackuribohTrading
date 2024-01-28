@@ -84,9 +84,16 @@ def query_latest_listings(session: Session) -> List[SKUListing]:
 
 
 if __name__ == "__main__":
-    for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=1)):
-        card = sku.card
+    print("1 DAY")
 
+    sku_ids = [str(sku.id) for (sku, copies_delta) in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5))]
+
+    print(sku_ids)
+
+    print(", ".join(sku_ids))
+
+    for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5)):
+        card = sku.card
         parameters = urlencode(
             query={
                 "Printing": sku.printing.name,
@@ -95,7 +102,37 @@ if __name__ == "__main__":
         )
 
         print(
-            f"{card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
+            f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
             f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
         )
 
+    # print("3 DAY")
+    # for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=3)):
+    #     card = sku.card
+    #
+    #     parameters = urlencode(
+    #         query={
+    #             "Printing": sku.printing.name,
+    #             "Condition": sku.condition.name,
+    #         }
+    #     )
+    #
+    #     print(
+    #         f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
+    #         f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
+    #     )
+    # print("5 DAY")
+    # for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5)):
+    #     card = sku.card
+    #
+    #     parameters = urlencode(
+    #         query={
+    #             "Printing": sku.printing.name,
+    #             "Condition": sku.condition.name,
+    #         }
+    #     )
+    #
+    #     print(
+    #         f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
+    #         f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
+    #     )

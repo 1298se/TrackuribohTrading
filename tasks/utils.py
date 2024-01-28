@@ -4,6 +4,7 @@ from typing import Callable, Any, List
 from urllib.parse import urlencode
 
 from models import SKU
+from tasks import logger
 
 MAX_PARALLEL_NETWORK_REQUESTS = 48
 
@@ -41,12 +42,10 @@ def paginateWithBackoff(
                     try:
                         result = future.result()
 
-                        print(f'Success on offset {futures_to_offset_map[future]}: {result}')
-
                         on_paginated(result)
 
                     except Exception as e:
-                        print(f'Error on offset {futures_to_offset_map[future]}: {e}')
+                        logger.error(f'Error on offset {futures_to_offset_map[future]}: {e}')
 
                         # If there's an error, add the offset for retry and mark the batch
                         retry_offsets.append(futures_to_offset_map[future])
@@ -56,7 +55,7 @@ def paginateWithBackoff(
 
                 # If there's any tasks we need to retry, delay and rerun the batch
                 if retry_offsets:
-                    print(f'Delaying for {retry_delay_sec} seconds and retrying...')
+                    logger.info(f'Delaying for {retry_delay_sec} seconds and retrying...')
                     time.sleep(retry_delay_sec)
 
                     futures_to_offset_map = {

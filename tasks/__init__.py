@@ -24,7 +24,8 @@ sentry_sdk.init(
 )
 
 scheduler = BlockingScheduler(
-    job_defaults={'misfire_grace_time': 60}
+    job_defaults={'misfire_grace_time': 60},
+    timezone="America/New_York",
 )
 
 logger = logging.getLogger(__name__)
