@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Dict
 
 from models import db_sessionmaker, SKU, Condition
-from models.sku_listing import SKUListing
+# from models.sku_listing import SKUListing
 from models.sku_listings_batch_aggregate_data import SKUListingsBatchAggregateData
 from services.tcgplayer_listing_service import get_product_active_listings
 from tasks.log_runtime_decorator import log_runtime
@@ -37,17 +37,17 @@ def _insert_listing_data(
 
     session.commit()
 
-    sku_listings = map(
-        lambda response: SKUListing.from_tcgplayer_response(
-            response,
-            timestamp,
-        ),
-        sku_listing_responses,
-    )
+    # sku_listings = map(
+    #     lambda response: SKUListing.from_tcgplayer_response(
+    #         response,
+    #         timestamp,
+    #     ),
+    #     sku_listing_responses,
+    # )
 
     print(sku_id_to_batch_aggregate_data_dict)
 
-    session.add_all(sku_listings)
+    # session.add_all(sku_listings)
 
 
 def fetch_card_listings(
