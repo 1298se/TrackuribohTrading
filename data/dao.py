@@ -74,13 +74,18 @@ def query_most_recent_lowest_listing_price(session: Session, card_id: int, delta
         .order_by(asc(SKUListingsBatchAggregateData.timestamp))
 
 
-def query_latest_listings(session: Session) -> List[SKUListing]:
-    latest_timestamp_subquery = session.query(
-        func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).subquery()
+def query_latest_listings(session: Session, sku_id: int | None = None) -> List[SKUListing]:
+    query = session.query(SKUListing)
 
-    return session.query(SKUListing).filter(
-        SKUListing.timestamp == latest_timestamp_subquery.c.latest_timestamp
-    ).all()
+    if sku_id:
+        query.filter(SKUListing.sku_id == sku_id)
+
+    latest_timestamp_subquery = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar_subquery()
+    query = query.filter(
+        SKUListing.timestamp == latest_timestamp_subquery
+    )
+
+    return query.all()
 
 
 if __name__ == "__main__":

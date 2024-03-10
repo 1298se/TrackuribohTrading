@@ -1,4 +1,4 @@
-from services.algo_1 import find_outliers
+from services.algo_1 import find_sku_max_profit
 
 
-find_outliers()
+find_sku_max_profit()

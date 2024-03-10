@@ -16,6 +16,7 @@ from models.sku_listing import SKUListing
 from models.card_sale import CardSale
 from models.card_sync_data import CardSyncData
 from models.sku_listings_batch_aggregate_data import SKUListingsBatchAggregateData
+from models.sku_max_profit import SKUMaxProfit
 
 load_dotenv()
 

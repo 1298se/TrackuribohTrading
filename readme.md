@@ -14,3 +14,10 @@ systemctl stop trackuriboh.service
 ```
 systemctl status trackuriboh.service
 ```
+
+# get into psql
+```
+psql -U postgres -h localhost
+\c trackuriboh_db
+\dt
+```
