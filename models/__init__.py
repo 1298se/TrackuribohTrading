@@ -12,7 +12,7 @@ from models.condition import Condition
 from models.printing import Printing
 from models.set import Set
 from models.sku import SKU
-from models.sku_listing import SKUListing
+# from models.sku_listing import SKUListing
 from models.card_sale import CardSale
 from models.card_sync_data import CardSyncData
 from models.sku_listings_batch_aggregate_data import SKUListingsBatchAggregateData
@@ -29,10 +29,10 @@ db_sessionmaker = sessionmaker(engine)
 LISTINGS_CHUNK_TIME_INTERVAL = '1 day'
 SALES_CHUNK_TIME_INTERVAL = '7 day'
 
-create_sku_listing_hypertable_sql = text(f"SELECT create_hypertable('{SKUListing.__tablename__}',"
-                                         f"'timestamp',"
-                                         f"if_not_exists => TRUE);"
-                                         )
+# create_sku_listing_hypertable_sql = text(f"SELECT create_hypertable('{SKUListing.__tablename__}',"
+#                                          f"'timestamp',"
+#                                          f"if_not_exists => TRUE);"
+#                                          )
 
 create_card_sales_hypertable_sql = text(f"SELECT create_hypertable('{CardSale.__tablename__}',"
                                         f"'order_date',"
@@ -46,7 +46,7 @@ create_sku_listings_batch_aggregate_data_hypertable_sql = text(
 )
 
 with engine.connect() as connection:
-    connection.execute(create_sku_listing_hypertable_sql)
+    # connection.execute(create_sku_listing_hypertable_sql)
     connection.execute(create_sku_listings_batch_aggregate_data_hypertable_sql)
     connection.execute(create_card_sales_hypertable_sql)
 
