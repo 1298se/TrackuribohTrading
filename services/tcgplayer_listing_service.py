@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import List
 
@@ -71,12 +71,14 @@ def get_product_active_listings_request_payload(
     }
 
 
-def get_sales_request_payload(count: int, offset: int, listing_type: str):
+def get_sales_request_payload(count: int, offset: int, printings: List[str], conditions: List[str]):
     return {
-        "listingType": listing_type,
+        "listingType": "ListingWithoutPhotos",
         "limit": count,
         "offset": offset,
-        "time": datetime.utcnow().timestamp() * 1000,
+        "variants": printings,
+        "time": datetime.now().timestamp() * 1000,
+        "conditions": conditions,
     }
 
 
@@ -118,7 +120,7 @@ def get_product_active_listings(
     return list(listings.values())
 
 
-def get_sales(request: CardRequestData, most_recent_sale: datetime) -> tuple[int, list[CardSaleResponse]]:
+def get_sales(request: CardRequestData, time_delta: timedelta) -> list[CardSaleResponse]:
     sales = []
     product_id = request['product_id']
 
@@ -126,8 +128,13 @@ def get_sales(request: CardRequestData, most_recent_sale: datetime) -> tuple[int
 
     while True:
         # The endpoint only gives back 25 at most...
-        payload = get_sales_request_payload(25, len(sales), "ListingWithoutPhotos")
-
+        payload = get_sales_request_payload(
+            count=25,
+            offset=len(sales),
+             conditions=request["conditions"], 
+             printings=request["printings"]
+            )
+        
         response = requests.post(url=url, json=payload, headers=BASE_HEADERS)
 
         response.raise_for_status()
@@ -137,13 +144,12 @@ def get_sales(request: CardRequestData, most_recent_sale: datetime) -> tuple[int
         has_new_sales = True
 
         for sale_response in data['data']:
-            if most_recent_sale is not None and \
-                    CardSale.parse_response_order_date(sale_response['orderDate']) <= most_recent_sale:
-                has_new_sales = False
-            else:
+            if CardSale.parse_response_order_date(sale_response["orderDate"]) >= datetime.now(tz=timezone.utc) - time_delta:
                 sales.append(sale_response)
+            else:
+                has_new_sales = False
 
         if data['nextPage'] == "" or not has_new_sales:
             break
 
-    return product_id, sales
+    return sales
