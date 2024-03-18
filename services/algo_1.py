@@ -98,9 +98,9 @@ def determine_num_copies_sold_per_day(sku_id: int):
 
     num_sales_by_day = [sum(sale['quantity'] for sale in sales) for (_, sales) in grouped_sales_by_day]
 
-    avg_sales_per_day = sum(num_sales_by_day) / len(num_sales_by_day)
+    avg_sales_per_day = sum(num_sales_by_day) / 7
 
-    return int(avg_sales_per_day)
+    return avg_sales_per_day
 
 
 # Max 14 workers because of DB config of 5 concurrent + 10 overflow connections
@@ -131,7 +131,7 @@ def find_sku_max_profit():
     for sku_id, _ in top_sku_profits:
         num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
 
-        ret = compute_max_profit(sku_id_to_listings_dict[sku_id], num_copies_sold_per_day)
+        ret = compute_max_profit(sku_id_to_listings_dict[sku_id], int(num_copies_sold_per_day * 7))
         if ret[0] <= 1:  # at least 1 dollar in profit
             continue
 
