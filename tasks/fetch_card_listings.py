@@ -46,8 +46,6 @@ def _insert_listing_data(
         sku_listing_responses,
     )
 
-    print(sku_id_to_batch_aggregate_data_dict)
-
     session.add_all(sku_listings)
 
 

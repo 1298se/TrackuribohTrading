@@ -132,7 +132,7 @@ def find_sku_max_profit():
         num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
 
         ret = compute_max_profit(sku_id_to_listings_dict[sku_id], num_copies_sold_per_day)
-        if ret[0] <= 0:
+        if ret[0] <= 1:  # at least 1 dollar in profit
             continue
 
         good_looking_profits.append((sku_id, ret))
