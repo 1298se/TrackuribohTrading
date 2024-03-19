@@ -1,3 +1,9 @@
+# run locally
+```
+pipenv shell
+python main.py
+```
+
 # ssh
 Get from Oliver
 ```
