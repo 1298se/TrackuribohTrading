@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 from typing import List
 from urllib.parse import urlencode
 
-from sqlalchemy import and_, desc, func, asc
+from sqlalchemy import and_, desc, func, asc, select
 from sqlalchemy.orm import Session, Query
 
 from models import db_sessionmaker, SKUListingsBatchAggregateData, SKU, SKUListing
@@ -74,70 +74,16 @@ def query_most_recent_lowest_listing_price(session: Session, card_id: int, delta
         .order_by(asc(SKUListingsBatchAggregateData.timestamp))
 
 
-def query_latest_listings(session: Session, sku_id: int | None = None) -> List[SKUListing]:
-    query = session.query(SKUListing)
+def query_listing_skus(session: Session) -> List[int]:
+    return session.scalars(select(SKUListing.sku_id).distinct()).all()
 
-    if sku_id:
-        query.filter(SKUListing.sku_id == sku_id)
 
-    latest_timestamp_subquery = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar_subquery()
-    query = query.filter(
-        SKUListing.timestamp == latest_timestamp_subquery
-    )
+def query_latest_listings(session: Session, sku_id: int) -> List[SKUListing]:
+    latest_timestamp_subquery = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar()
 
-    return query.all()
+    return session.query(SKUListing).filter(SKUListing.sku_id == sku_id).filter(SKUListing.timestamp == latest_timestamp_subquery).all()
 
 
 if __name__ == "__main__":
-    print("1 DAY")
+    print(query_latest_listings(db_sessionmaker(), sku_id=3370179))
 
-    sku_ids = [str(sku.id) for (sku, copies_delta) in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5))]
-
-    print(sku_ids)
-
-    print(", ".join(sku_ids))
-
-    for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5)):
-        card = sku.card
-        parameters = urlencode(
-            query={
-                "Printing": sku.printing.name,
-                "Condition": sku.condition.name,
-            }
-        )
-
-        print(
-            f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
-            f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
-        )
-
-    # print("3 DAY")
-    # for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=3)):
-    #     card = sku.card
-    #
-    #     parameters = urlencode(
-    #         query={
-    #             "Printing": sku.printing.name,
-    #             "Condition": sku.condition.name,
-    #         }
-    #     )
-    #
-    #     print(
-    #         f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
-    #         f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
-    #     )
-    # print("5 DAY")
-    # for sku, copies_delta in get_past_top_listings_by_listings_delta(session=db_sessionmaker(), delta=timedelta(days=5)):
-    #     card = sku.card
-    #
-    #     parameters = urlencode(
-    #         query={
-    #             "Printing": sku.printing.name,
-    #             "Condition": sku.condition.name,
-    #         }
-    #     )
-    #
-    #     print(
-    #         f"{sku.id} {card.name} {card.rarity_name} {card.set.name} {sku.printing.name} {sku.condition.name} {copies_delta} "
-    #         f"{f'www.tcgplayer.com/product/{card.id}?{parameters}'}"
-    #     )

@@ -1,32 +1,31 @@
-from datetime import datetime, timedelta
-from decimal import Decimal
-from itertools import groupby
-from typing import List, Optional, Tuple
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import heapq
 import logging
-from data.dao import query_latest_listings
-from models.card_sale import CardSale
-from sqlalchemy.dialects.postgresql import insert
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
+from decimal import Decimal
+from itertools import groupby
+from typing import List, Tuple
 
-from models import db_sessionmaker, SKU, Condition
-from models.printing import Printing
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
+
+from data.dao import query_latest_listings, query_listing_skus
+from models import db_sessionmaker, SKU
+from models.card_sale import CardSale
 from models.sku_listing import SKUListing
 from models.sku_max_profit import SKUMaxProfit
-from services.tcgplayer_catalog_service import TCGPlayerCatalogService
-from services.tcgplayer_listing_service import get_product_active_listings, get_sales
-from tasks import fetch_card_listings
+from services.tcgplayer_listing_service import get_sales
 from tasks.custom_types import CardRequestData
+from tasks.log_runtime_decorator import log_runtime
 from tasks.utils import split_into_segments
 
 logger = logging.getLogger(__name__)
 
-session = db_sessionmaker()
-
-
 TAX = Decimal(0.10)
 SELLER_COST = Decimal(0.85)
+
+
 def determine_profit(listings: List[SKUListing], quantity_limit):
     max_profit_for_cards = (0, 0, 0)
     running_cost = 0
@@ -39,7 +38,7 @@ def determine_profit(listings: List[SKUListing], quantity_limit):
         running_cost += listing.price * cards_to_buy_from_listing + listing.seller_shipping_price
         running_quantity += cards_to_buy_from_listing
 
-        next_listing = listings[i+1]
+        next_listing = listings[i + 1]
         shipping_cost = 0
         if next_listing.price >= 40:
             shipping_cost = 4
@@ -51,37 +50,42 @@ def determine_profit(listings: List[SKUListing], quantity_limit):
         profit = (revenue - total_cost)
         if profit > max_profit_for_cards[0]:
             max_profit_for_cards = (profit, running_quantity, running_cost)
-        
+
         if running_quantity == quantity_limit:
             break
 
     return max_profit_for_cards
 
+
 def determine_num_cards(listings: List[SKUListing]):
     return sum(listing.quantity for listing in listings)
 
-def compute_max_profit(listings, purchase_copies_limit = None):
-        sorted_listings = sorted(listings, key=lambda x: x.price + x.seller_shipping_price, reverse=False)
 
-        num_cards = determine_num_cards(sorted_listings) if purchase_copies_limit is None else purchase_copies_limit
-        
-        return determine_profit(sorted_listings, num_cards)
+def compute_max_profit(session: Session, sku_id: int, purchase_copies_limit=None):
+    listings = query_latest_listings(session, sku_id)
 
-def compute_max_profit_list(data: List[Tuple[int, List[SKUListing]]], limit: int):
-    heap = []
-    for sku_id, listings in data:
-        max_profit, num_cards, cost = compute_max_profit(listings)
+    sorted_listings = sorted(listings, key=lambda x: x.price + x.seller_shipping_price, reverse=False)
 
-        if len(heap) < limit:
-            heapq.heappush(heap, (sku_id, (max_profit, num_cards, cost)))
-        elif max_profit > heap[0][1][0]:
-            heapq.heapreplace(heap, (sku_id, (max_profit, num_cards, cost)))
-    
-    return heap
+    num_cards = determine_num_cards(sorted_listings) if purchase_copies_limit is None else purchase_copies_limit
+
+    return determine_profit(sorted_listings, num_cards)
 
 
-def determine_num_copies_sold_per_day(sku_id: int):
+def compute_max_potential_profit_for_skus(sku_ids: List[int]):
+    session = db_sessionmaker()
 
+    profitable_skus = []
+    for sku_id in sku_ids:
+        max_profit, num_cards, cost = compute_max_profit(session, sku_id)
+
+        if max_profit >= 1:
+            print(f'adding sku with {sku_id} and max profit {max_profit}')
+            profitable_skus.append((sku_id, (max_profit, num_cards, cost)))
+
+    return profitable_skus
+
+
+def determine_num_copies_sold_per_day(session: Session, sku_id: int):
     sku: SKU = session.get(SKU, sku_id)
 
     card_request = CardRequestData(
@@ -105,39 +109,36 @@ def determine_num_copies_sold_per_day(sku_id: int):
 
 # Max 14 workers because of DB config of 5 concurrent + 10 overflow connections
 NUM_WORKERS = 14
+
+
+@log_runtime
 def find_sku_max_profit():
+    session = db_sessionmaker()
+
     session.query(SKUMaxProfit).delete()
-    session.commit()
 
-    latest_listings = query_latest_listings(session)
-    sku_id_to_listings_dict: dict[int, list[SKUListing]] = defaultdict(list[SKUListing])
-    for listing in latest_listings:
-        sku_id_to_listings_dict[listing.sku_id].append(listing)
+    listing_sku_ids = query_listing_skus(session)
 
-    sku_id_to_listings_segments = split_into_segments(list(sku_id_to_listings_dict.items()), NUM_WORKERS)
+    sku_id_segments = split_into_segments(list(listing_sku_ids), NUM_WORKERS)
 
-    top_sku_profits = []
+    profitable_skus_with_profit = []
     with ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
-        futures = [executor.submit(compute_max_profit_list, segment, 20) for segment in sku_id_to_listings_segments]
+        futures = [executor.submit(compute_max_potential_profit_for_skus, segment) for segment in sku_id_segments]
 
         for future in as_completed(futures):
-            top_sku_profits += future.result()
-        
-    top_sku_profits = list(sorted(top_sku_profits, key=lambda x: x[1], reverse=True))
+            profitable_skus_with_profit += future.result()
 
-    print("have top skus", len(top_sku_profits))
+    profitable_skus_with_profit = list(sorted(profitable_skus_with_profit, key=lambda x: x[1], reverse=True))[:200]
 
     good_looking_profits = []
-    for sku_id, _ in top_sku_profits:
-        num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
+    for sku_id, _ in profitable_skus_with_profit:
+        num_copies_sold_per_day = determine_num_copies_sold_per_day(session, sku_id=sku_id)
 
-        ret = compute_max_profit(sku_id_to_listings_dict[sku_id], int(num_copies_sold_per_day * 7))
-        if ret[0] <= 1:  # at least 1 dollar in profit
-            continue
+        ret = compute_max_profit(session, sku_id, int(num_copies_sold_per_day * 7))
 
         good_looking_profits.append((sku_id, ret))
         print(sku_id, ret)
-    
+
     good_looking_profits = list(sorted(good_looking_profits, key=lambda x: x[1][0], reverse=True))
 
     stmt = insert(SKUMaxProfit).values(
