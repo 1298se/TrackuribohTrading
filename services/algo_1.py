@@ -26,9 +26,9 @@ TAX = Decimal(0.10)
 SELLER_COST = Decimal(0.85)
 
 
-def determine_profit(listings: List[SKUListing], quantity_limit):
-    max_profit_for_cards = (0, 0, 0)
-    running_cost = 0
+def determine_profit(listings: List[SKUListing], quantity_limit) -> Tuple[Decimal, int, Decimal]:
+    max_profit_for_cards = (Decimal(0.0), 0, Decimal(0.0))
+    running_cost = Decimal(0.0)
     running_quantity = 0
     for i in range(len(listings) - 1):
         listing = listings[i]
@@ -44,7 +44,7 @@ def determine_profit(listings: List[SKUListing], quantity_limit):
             shipping_cost = 4
 
         # We assume we can sell all the cards we've bought at the next listing price
-        revenue = (next_listing.price - shipping_cost) * running_quantity * SELLER_COST
+        revenue = (Decimal(next_listing.price) - shipping_cost) * running_quantity * SELLER_COST
 
         total_cost = running_cost * (1 + TAX)
         profit = (revenue - total_cost)
@@ -57,21 +57,17 @@ def determine_profit(listings: List[SKUListing], quantity_limit):
     return max_profit_for_cards
 
 
-def determine_num_cards(listings: List[SKUListing]):
-    return sum(listing.quantity for listing in listings)
-
-
 def compute_max_profit(session: Session, sku_id: int, purchase_copies_limit=None):
     listings = query_latest_listings(session, sku_id)
 
     sorted_listings = sorted(listings, key=lambda x: x.price + x.seller_shipping_price, reverse=False)
 
-    num_cards = determine_num_cards(sorted_listings) if purchase_copies_limit is None else purchase_copies_limit
+    num_cards = sum(listing.quantity for listing in listings) if purchase_copies_limit is None else purchase_copies_limit
 
     return determine_profit(sorted_listings, num_cards)
 
 
-def compute_max_potential_profit_for_skus(sku_ids: List[int]):
+def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[Tuple[int, Tuple[Decimal, int, Decimal]]]:
     session = db_sessionmaker()
 
     profitable_skus = []
@@ -85,7 +81,7 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]):
     return profitable_skus
 
 
-def determine_num_copies_sold_per_day(session: Session, sku_id: int):
+def determine_num_copies_sold_per_day(session: Session, sku_id: int) -> Decimal:
     sku: SKU = session.get(SKU, sku_id)
 
     card_request = CardRequestData(
@@ -96,7 +92,7 @@ def determine_num_copies_sold_per_day(session: Session, sku_id: int):
 
     sales = get_sales(request=card_request, time_delta=timedelta(days=7))
     if not sales:
-        return 0
+        return Decimal(0)
 
     grouped_sales_by_day = groupby(sales, key=lambda sale: CardSale.parse_response_order_date(sale['orderDate']).date())
 
@@ -128,29 +124,34 @@ def find_sku_max_profit():
         for future in as_completed(futures):
             profitable_skus_with_profit += future.result()
 
-    profitable_skus_with_profit = list(sorted(profitable_skus_with_profit, key=lambda x: x[1], reverse=True))[:200]
+    profitable_skus_with_profit = list(
+        sorted(profitable_skus_with_profit, key=lambda x: x[1][0] / x[1][2], reverse=True)
+    )[:200]
 
     good_looking_profits = []
     for sku_id, _ in profitable_skus_with_profit:
         num_copies_sold_per_day = determine_num_copies_sold_per_day(session, sku_id=sku_id)
 
-        ret = compute_max_profit(session, sku_id, int(num_copies_sold_per_day * 7))
+        # TODO: room for optimization. We currently just use the 7-day sales count as the number of copies we can buy
+        ret = compute_max_profit(session, sku_id, int(num_copies_sold_per_day * 3))
 
-        good_looking_profits.append((sku_id, ret))
-        print(sku_id, ret)
+        if ret[0] >= 1:
+            good_looking_profits.append((sku_id, ret))
+            print(sku_id, ret)
 
     good_looking_profits = list(sorted(good_looking_profits, key=lambda x: x[1][0], reverse=True))
 
-    stmt = insert(SKUMaxProfit).values(
-        [
-            dict(
-                sku_id=sku_id,
-                max_profit=profit,
-                num_cards=num_cards,
-                cost=cost
-            )
-            for sku_id, (profit, num_cards, cost) in good_looking_profits
-        ]
-    )
-    session.execute(stmt)
-    session.commit()
+    values = [
+        dict(
+            sku_id=sku_id,
+            max_profit=profit,
+            num_cards=num_cards,
+            cost=cost
+        )
+        for sku_id, (profit, num_cards, cost) in good_looking_profits
+    ]
+
+    if len(values) > 0:
+        stmt = insert(SKUMaxProfit).values(values)
+        session.execute(stmt)
+        session.commit()
