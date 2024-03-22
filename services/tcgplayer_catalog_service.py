@@ -170,8 +170,6 @@ class TCGPlayerCatalogService:
                 self.access_token = data['access_token']
                 self.access_token_expiry = data['.expires']
 
-                logger.debug("Updated access token")
-
                 return True
             except requests.RequestException as e:
                 logger.debug(e)

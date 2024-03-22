@@ -1,4 +1,4 @@
-from services.algo_1 import find_sku_max_profit
+from services.find_profitable_skus import find_profitable_skus
 from tasks import scheduler
 from tasks.fetch_card_listings import fetch_all_near_mint_card_listing_data
 from tasks.update_card_database import update_card_database  # Import your task
@@ -14,7 +14,7 @@ scheduler.add_job(fetch_all_near_mint_card_listing_data, id="fetch_all_near_mint
 
 def job_listener(event):
     if event.job_id == 'fetch_all_near_mint_listing':
-        scheduler.add_job(find_sku_max_profit)
+        scheduler.add_job(find_profitable_skus)
 
 
 scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)

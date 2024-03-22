@@ -62,7 +62,8 @@ def compute_max_profit(session: Session, sku_id: int, purchase_copies_limit=None
 
     sorted_listings = sorted(listings, key=lambda x: x.price + x.seller_shipping_price, reverse=False)
 
-    num_cards = sum(listing.quantity for listing in listings) if purchase_copies_limit is None else purchase_copies_limit
+    num_cards = sum(
+        listing.quantity for listing in listings) if purchase_copies_limit is None else purchase_copies_limit
 
     return determine_profit(sorted_listings, num_cards)
 
@@ -75,7 +76,6 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[Tuple[int,
         max_profit, num_cards, cost = compute_max_profit(session, sku_id)
 
         if max_profit >= 1:
-            print(f'adding sku with {sku_id} and max profit {max_profit}')
             profitable_skus.append((sku_id, (max_profit, num_cards, cost)))
 
     return profitable_skus
@@ -90,7 +90,7 @@ def determine_num_copies_sold_per_day(session: Session, sku_id: int) -> Decimal:
         conditions=[sku.condition_id],
     )
 
-    sales = get_sales(request=card_request, time_delta=timedelta(days=7))
+    sales = get_sales(request=card_request, time_delta=timedelta(hours=6))
     if not sales:
         return Decimal(0)
 
@@ -108,7 +108,7 @@ NUM_WORKERS = 14
 
 
 @log_runtime
-def find_sku_max_profit():
+def find_profitable_skus():
     session = db_sessionmaker()
 
     session.query(SKUMaxProfit).delete()
@@ -137,7 +137,6 @@ def find_sku_max_profit():
 
         if ret[0] >= 1:
             good_looking_profits.append((sku_id, ret))
-            print(sku_id, ret)
 
     good_looking_profits = list(sorted(good_looking_profits, key=lambda x: x[1][0], reverse=True))
 
@@ -155,3 +154,7 @@ def find_sku_max_profit():
         stmt = insert(SKUMaxProfit).values(values)
         session.execute(stmt)
         session.commit()
+
+
+if __name__ == "__main__":
+    find_profitable_skus()
