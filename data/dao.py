@@ -1,12 +1,12 @@
 from datetime import timedelta, datetime
 from typing import List
-from urllib.parse import urlencode
 
 from sqlalchemy import and_, desc, func, asc, select
 from sqlalchemy.orm import Session, Query
 
 from models import db_sessionmaker, SKUListingsBatchAggregateData, SKU, SKUListing
 from models.card_sale import CardSale
+from tasks.log_runtime_decorator import log_runtime
 
 
 def query_most_recent_sale_timestamp_for_card(session: Session, card_id) -> Query:
