@@ -193,9 +193,9 @@ def find_profitable_skus() -> None:
 
     logger.info(f'found {len(profitable_skus)} profitable skus')
 
-    profitable_skus = get_good_looking_skus(profitable_skus)
+    # profitable_skus = get_good_looking_skus(profitable_skus)
 
-    logger.info(f'found {len(profitable_skus)} good skus')
+    # logger.info(f'found {len(profitable_skus)} good skus')
 
     profitable_skus = list(
         sorted(profitable_skus, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost), reverse=True)
