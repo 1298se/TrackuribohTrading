@@ -54,7 +54,7 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
 
         num_cards_to_buy_from_listing = min(quantity_limit - running_quantity, listing.quantity)
 
-        running_cost += listing.price * num_cards_to_buy_from_listing + listing.seller_shipping_price
+        running_cost += listing.price * num_cards_to_buy_from_listing + listing.shipping_price
         running_quantity += num_cards_to_buy_from_listing
 
         next_listing = listings[i + 1]
@@ -77,7 +77,7 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
 
 
 def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_limit: int | None = None) -> ProfitData:
-    sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.seller_shipping_price)
+    sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.shipping_price)
 
     num_cards = sum(
         listing.quantity for listing in listings

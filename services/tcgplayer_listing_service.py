@@ -131,10 +131,10 @@ def get_sales(request: CardRequestData, time_delta: timedelta) -> list[CardSaleR
         payload = get_sales_request_payload(
             count=25,
             offset=len(sales),
-             conditions=request["conditions"], 
-             printings=request["printings"]
-            )
-        
+            conditions=request["conditions"],
+            printings=request["printings"]
+        )
+
         response = requests.post(url=url, json=payload, headers=BASE_HEADERS)
 
         response.raise_for_status()
@@ -144,7 +144,8 @@ def get_sales(request: CardRequestData, time_delta: timedelta) -> list[CardSaleR
         has_new_sales = True
 
         for sale_response in data['data']:
-            if CardSale.parse_response_order_date(sale_response["orderDate"]) >= datetime.now(tz=timezone.utc) - time_delta:
+            if CardSale.parse_response_order_date(sale_response["orderDate"]) >= datetime.now(
+                    tz=timezone.utc) - time_delta:
                 sales.append(sale_response)
             else:
                 has_new_sales = False

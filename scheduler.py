@@ -20,4 +20,5 @@ def job_listener(event):
 scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 if __name__ == "__main__":
+    scheduler.add_job(update_card_database)
     scheduler.start()

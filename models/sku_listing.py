@@ -17,9 +17,7 @@ class SKUListing(Base):
     quantity = Column(Integer)
     seller_name = Column(String)
     price = Column(Numeric(precision=10, scale=2))  # Numeric for price
-    seller_shipping_price = Column(Numeric(precision=10, scale=2))  # Numeric for seller_shipping_price
-
-    total_price = column_property(price + seller_shipping_price)
+    shipping_price = Column(Numeric(precision=10, scale=2))  # Numeric for shipping_price
 
     @staticmethod
     def from_tcgplayer_response(response: SKUListingResponse, timestamp):
@@ -32,7 +30,7 @@ class SKUListing(Base):
             quantity=response['quantity'],
             seller_name=response['sellerName'],
             price=response['price'],
-            seller_shipping_price=response['sellerShippingPrice'],
+            shipping_price=response['shippingPrice'],
         )
 
 

@@ -151,5 +151,4 @@ def update_card_database():
 
 
 if __name__ == "__main__":
-    print(sys.path)
     update_card_database()
