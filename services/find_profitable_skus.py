@@ -4,14 +4,12 @@ from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from itertools import groupby
-from typing import List, Tuple
+from typing import List
 
-from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from data.dao import query_latest_listings, get_listing_sku_ids
-from models import db_sessionmaker, SKU
-from models.card_sale import CardSale
+from data.dao import get_latest_listings_for_skus, get_listing_sku_ids, get_copies_delta_for_skus
+from models import db_sessionmaker, SKU, CardSale
 from models.sku_listing import SKUListing
 from models.sku_max_profit import SKUMaxProfit
 from services.tcgplayer_listing_service import get_sales
@@ -47,6 +45,10 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
     max_profit_for_cards = ProfitData(Decimal(0.0), 0, Decimal(0.0))
     running_cost = Decimal(0.0)
     running_quantity = 0
+
+    if quantity_limit <= 0:
+        return max_profit_for_cards
+
     for i in range(len(listings) - 1):
         listing = listings[i]
 
@@ -85,11 +87,21 @@ def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_
 
 
 def get_listings_dict(sku_ids: List[int]) -> dict[int, List[SKUListing]]:
-    sku_id_to_listings = groupby(query_latest_listings(session, sku_ids), key=lambda x: x.sku_id)
+    sku_id_to_listings = groupby(get_latest_listings_for_skus(session, sku_ids), key=lambda x: x.sku_id)
 
     return {
-        sku_id: list(listings_)
-        for sku_id, listings_ in sku_id_to_listings
+        sku_id: list(listing)
+        for sku_id, listing in sku_id_to_listings
+    }
+
+
+def get_purchase_copies_limit_dict(sku_ids: List[int]) -> dict[int, int]:
+    sku_id_to_purchase_limit = groupby(get_copies_delta_for_skus(session, sku_ids, timedelta(days=1)),
+                                       key=lambda x: x[0])
+
+    return {
+        sku_id: list(purchase_limit)[0][1]  # purchase_limit only has 1 item
+        for sku_id, purchase_limit in sku_id_to_purchase_limit
     }
 
 
@@ -100,9 +112,13 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitD
     for offset in range(0, len(sku_ids), BATCH_SIZE):
 
         listings_dict = get_listings_dict(sku_ids[offset:offset + BATCH_SIZE])
+        purchase_copies_limit_dict = get_purchase_copies_limit_dict(sku_ids)
 
         for sku_id, listings_for_sku in listings_dict.items():
-            card_profit_data = compute_max_profit_for_listings(listings_for_sku)
+            card_profit_data = compute_max_profit_for_listings(
+                listings_for_sku,
+                purchase_copies_limit=purchase_copies_limit_dict[sku_id]
+            )
 
             if card_profit_data.max_profit >= 1:
                 profitable_skus.append(SkuProfitData(sku_id, card_profit_data))
@@ -123,11 +139,6 @@ def get_profitable_skus() -> List[SkuProfitData]:
         for future in as_completed(futures):
             profitable_skus_with_profit += future.result()
 
-    profitable_skus_with_profit = list(
-        sorted(profitable_skus_with_profit, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost),
-               reverse=True)
-    )[:200]
-
     return profitable_skus_with_profit
 
 
@@ -142,7 +153,7 @@ def determine_num_copies_sold_per_day(sku_id: int) -> Decimal:
         conditions=[sku.condition_id],
     )
 
-    sales = get_sales(request=card_request, time_delta=timedelta(hours=6))
+    sales = get_sales(request=card_request, time_delta=timedelta(hours=24))
     if not sales:
         return Decimal(0)
 
@@ -150,7 +161,7 @@ def determine_num_copies_sold_per_day(sku_id: int) -> Decimal:
 
     num_sales_by_day = [sum(sale['quantity'] for sale in sales) for (_, sales) in grouped_sales_by_day]
 
-    avg_sales_per_day = Decimal(sum(num_sales_by_day) * 4)
+    avg_sales_per_day = Decimal(sum(num_sales_by_day) * 1)
 
     return avg_sales_per_day
 
@@ -164,7 +175,7 @@ def get_good_looking_skus(profitable_skus: List[SkuProfitData]) -> List[SkuProfi
         num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
 
         # TODO: room for optimization. We currently just use the 3-day sales count as the number of copies we can buy
-        sku_profit_data = compute_max_profit_for_listings(listings_dict[sku_id], int(num_copies_sold_per_day * 3))
+        sku_profit_data = compute_max_profit_for_listings(listings_dict[sku_id], int(num_copies_sold_per_day * 5))
 
         if sku_profit_data.max_profit >= 1:
             good_looking_profits.append(SkuProfitData(sku_id, sku_profit_data))
@@ -182,9 +193,13 @@ def find_profitable_skus() -> None:
 
     logger.info(f'found {len(profitable_skus)} profitable skus')
 
-    good_skus = get_good_looking_skus(profitable_skus)
+    profitable_skus = get_good_looking_skus(profitable_skus)
 
-    logger.info(f'found {len(good_skus)} good skus')
+    logger.info(f'found {len(profitable_skus)} good skus')
+
+    profitable_skus = list(
+        sorted(profitable_skus, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost), reverse=True)
+    )
 
     values = [
         dict(
@@ -193,7 +208,7 @@ def find_profitable_skus() -> None:
             num_cards=sku_profit_data.profit_data.num_cards,
             cost=sku_profit_data.profit_data.cost,
         )
-        for sku_profit_data in good_skus
+        for sku_profit_data in profitable_skus
     ]
     if not values:
         return

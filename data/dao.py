@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from typing import List
+from typing import List, Tuple
 
 from sqlalchemy import and_, desc, func, asc, select
 from sqlalchemy.orm import Session, Query
@@ -40,20 +40,20 @@ def get_past_top_listings_by_listings_delta(session: Session, delta: timedelta):
         .limit(30)
 
 
-# def get_top_lowest_listing_price_changes_past_3_days(session: Session):
-#     start_date = datetime.now() - timedelta(days=3)
-#
-#     return session.query(
-#         SKU,
-#         ((func.last(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp) -
-#           func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp)) /
-#          func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp))
-#             .label("price_change"),
-#     ).join(SKUListingsBatchAggregateData.sku) \
-#         .filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
-#         .group_by(SKU.card_id, SKUListingsBatchAggregateData.sku_id) \
-#         .order_by(desc("price_change")) \
-#         .subquery()
+def get_top_lowest_listing_price_changes_past_3_days(session: Session):
+    start_date = datetime.now() - timedelta(days=3)
+
+    return session.query(
+        SKU,
+        ((func.last(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp) -
+          func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp)) /
+         func.first(SKUListingsBatchAggregateData.lowest_listing_price, SKUListingsBatchAggregateData.timestamp))
+            .label("price_change"),
+    ).join(SKUListingsBatchAggregateData.sku) \
+        .filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
+        .group_by(SKU.card_id, SKUListingsBatchAggregateData.sku_id) \
+        .order_by(desc("price_change")) \
+        .subquery()
 
 
 def get_skus(session: Session):
@@ -78,12 +78,33 @@ def get_listing_sku_ids(session: Session) -> List[int]:
     return session.scalars(select(SKUListing.sku_id).distinct()).all()
 
 
-def query_latest_listings(session: Session, sku_ids: List[int]) -> List[SKUListing]:
-    latest_timestamp_subquery: datetime = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar()
+def get_latest_listings_for_skus(session: Session, sku_ids: List[int]) -> List[SKUListing]:
+    latest_timestamp_subquery: datetime = session.query(
+        func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar()
 
-    return session.query(SKUListing).filter(SKUListing.sku_id.in_(sku_ids)).filter(SKUListing.timestamp == latest_timestamp_subquery).all()
+    return session.query(SKUListing).filter(SKUListing.sku_id.in_(sku_ids)).filter(
+        SKUListing.timestamp == latest_timestamp_subquery).all()
+
+
+def get_copies_delta_for_skus(session: Session, sku_ids: List[int], delta: timedelta) -> List[Tuple[int, int]]:
+    start_date = datetime.now() - delta
+
+    return session.query(
+        SKUListingsBatchAggregateData.sku_id,
+        (
+                func.first(
+                    SKUListingsBatchAggregateData.total_copies_count,
+                    SKUListingsBatchAggregateData.timestamp
+                ) -
+                func.last(
+                    SKUListingsBatchAggregateData.total_copies_count,
+                    SKUListingsBatchAggregateData.timestamp)
+        )
+    ).filter(SKUListingsBatchAggregateData.sku_id.in_(sku_ids)) \
+        .filter(SKUListingsBatchAggregateData.timestamp >= start_date) \
+        .group_by(SKUListingsBatchAggregateData.sku_id) \
+        .all()
 
 
 if __name__ == "__main__":
-    print(query_latest_listings(db_sessionmaker(), sku_ids=3370179))
-
+    print(get_top_lowest_listing_price_changes_past_3_days(db_sessionmaker()).all())

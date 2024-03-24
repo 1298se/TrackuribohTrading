@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import List, Tuple
 from urllib.parse import urlencode
 
-from data.dao import query_latest_listings
+from data.dao import get_latest_listings_for_skus
 from models import db_sessionmaker, SKUListing, SKU
 from tasks.utils import split_into_segments
 
@@ -55,7 +55,7 @@ def compute_top_pickups(data: List[Tuple[int, List[SKUListing]]], limit: int) ->
 
 def find_potential_pickups():
     session = db_sessionmaker()
-    latest_listings = query_latest_listings(session)
+    latest_listings = get_latest_listings_for_skus(session)
 
     sku_id_to_listings_dict = defaultdict(list)
 
