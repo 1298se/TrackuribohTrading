@@ -45,7 +45,7 @@ def _insert_listing_data(
 
         session.add(sku_id_to_batch_aggregate_data)
 
-    logger.info(f'inserting {len(sku_listings)} listings')
+    # logger.info(f'inserting {len(sku_listings)} listings')
 
     session.commit()
 
