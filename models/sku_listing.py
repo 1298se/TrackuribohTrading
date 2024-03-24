@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, DateTime, ForeignKeyConstraint
+from sqlalchemy import Column, Integer, Boolean, String, Numeric, ForeignKey, DateTime, ForeignKeyConstraint, Index
 from sqlalchemy.orm import relationship, column_property
 
 from models import Base
 from tasks.custom_types import SKUListingResponse
+
 
 class SKUListing(Base):
     __tablename__ = 'sku_listing'
@@ -33,3 +34,6 @@ class SKUListing(Base):
             price=response['price'],
             seller_shipping_price=response['sellerShippingPrice'],
         )
+
+
+sku_listing_sku_id_idx = Index("sku_listing_sku_id_idx", SKUListing.sku_id)

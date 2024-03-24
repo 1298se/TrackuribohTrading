@@ -78,12 +78,12 @@ def query_listing_skus(session: Session) -> List[int]:
     return session.scalars(select(SKUListing.sku_id).distinct()).all()
 
 
-def query_latest_listings(session: Session, sku_id: int) -> List[SKUListing]:
-    latest_timestamp_subquery = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar()
+def query_latest_listings(session: Session, sku_ids: List[int]) -> List[SKUListing]:
+    latest_timestamp_subquery: datetime = session.query(func.last(SKUListing.timestamp, SKUListing.timestamp).label('latest_timestamp')).scalar()
 
-    return session.query(SKUListing).filter(SKUListing.sku_id == sku_id).filter(SKUListing.timestamp == latest_timestamp_subquery).all()
+    return session.query(SKUListing).filter(SKUListing.sku_id.in_(sku_ids)).filter(SKUListing.timestamp == latest_timestamp_subquery).all()
 
 
 if __name__ == "__main__":
-    print(query_latest_listings(db_sessionmaker(), sku_id=3370179))
+    print(query_latest_listings(db_sessionmaker(), sku_ids=3370179))
 
