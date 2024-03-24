@@ -9,7 +9,7 @@ from typing import List, Tuple
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from data.dao import query_latest_listings
+from data.dao import query_latest_listings, get_listing_sku_ids
 from models import db_sessionmaker, SKU
 from models.card_sale import CardSale
 from models.sku_listing import SKUListing
@@ -27,6 +27,7 @@ NUM_WORKERS = 14
 """Max 14 workers because of DB config of 5 concurrent + 10 overflow connections"""
 TAX = Decimal(0.10)
 SELLER_COST = Decimal(0.85)
+BATCH_SIZE = 1000
 
 
 @dataclass
@@ -73,8 +74,8 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
     return max_profit_for_cards
 
 
-def compute_max_profit_for_listings(listings:  List[SKUListing], purchase_copies_limit: int | None = None) -> ProfitData:
-    sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.seller_shipping_price, reverse=False)
+def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_limit: int | None = None) -> ProfitData:
+    sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.seller_shipping_price)
 
     num_cards = sum(
         listing.quantity for listing in listings
@@ -84,12 +85,11 @@ def compute_max_profit_for_listings(listings:  List[SKUListing], purchase_copies
 
 
 def get_listings_dict(sku_ids: List[int]) -> dict[int, List[SKUListing]]:
-    listings = query_latest_listings(session, sku_ids)
-    listings = groupby(listings, key=lambda x: x.sku_id)
+    sku_id_to_listings = groupby(query_latest_listings(session, sku_ids), key=lambda x: x.sku_id)
 
     return {
-        sku_id: listings
-        for sku_id, listings_ in listings
+        sku_id: list(listings_)
+        for sku_id, listings_ in sku_id_to_listings
     }
 
 
@@ -97,23 +97,22 @@ def get_listings_dict(sku_ids: List[int]) -> dict[int, List[SKUListing]]:
 def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitData]:
     profitable_skus: List[SkuProfitData] = []
 
-    listings = get_listings_dict(sku_ids)
-    for sku_id, listings_for_sku in listings.items():
+    for offset in range(0, len(sku_ids), BATCH_SIZE):
 
-        card_profit_data = compute_max_profit_for_listings(listings_for_sku)
+        listings_dict = get_listings_dict(sku_ids[offset:offset + BATCH_SIZE])
 
-        if card_profit_data.max_profit > 0:
-            print(card_profit_data.max_profit)
-        if card_profit_data.max_profit >= 1:
-            profitable_skus.append(SkuProfitData(sku_id, card_profit_data))
+        for sku_id, listings_for_sku in listings_dict.items():
+            card_profit_data = compute_max_profit_for_listings(listings_for_sku)
+
+            if card_profit_data.max_profit >= 1:
+                profitable_skus.append(SkuProfitData(sku_id, card_profit_data))
 
     return profitable_skus
 
 
 @log_runtime
 def get_profitable_skus() -> List[SkuProfitData]:
-    listing_sku_ids = session.scalars(select(SKU.id)).all()
-    print(len(listing_sku_ids))
+    listing_sku_ids = get_listing_sku_ids(session)
 
     sku_id_segments = split_into_segments(list(listing_sku_ids), NUM_WORKERS)
 
@@ -124,10 +123,9 @@ def get_profitable_skus() -> List[SkuProfitData]:
         for future in as_completed(futures):
             profitable_skus_with_profit += future.result()
 
-    print("len", len(profitable_skus_with_profit))
-
     profitable_skus_with_profit = list(
-        sorted(profitable_skus_with_profit, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost), reverse=True)
+        sorted(profitable_skus_with_profit, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost),
+               reverse=True)
     )[:200]
 
     return profitable_skus_with_profit
@@ -162,14 +160,12 @@ def get_good_looking_skus(profitable_skus: List[SkuProfitData]) -> List[SkuProfi
     good_looking_profits = []
     listings_dict = get_listings_dict([sku_data.sku_id for sku_data in profitable_skus])
     for sku_data in profitable_skus:
-        print(sku_data)
         sku_id = sku_data.sku_id
         num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
 
-        # TODO: room for optimization. We currently just use the 6-day sales count as the number of copies we can buy
+        # TODO: room for optimization. We currently just use the 3-day sales count as the number of copies we can buy
         sku_profit_data = compute_max_profit_for_listings(listings_dict[sku_id], int(num_copies_sold_per_day * 3))
 
-        print(sku_profit_data)
         if sku_profit_data.max_profit >= 1:
             good_looking_profits.append(SkuProfitData(sku_id, sku_profit_data))
 
@@ -184,7 +180,11 @@ def find_profitable_skus() -> None:
 
     profitable_skus = get_profitable_skus()
 
+    logger.info(f'found {len(profitable_skus)} profitable skus')
+
     good_skus = get_good_looking_skus(profitable_skus)
+
+    logger.info(f'found {len(good_skus)} good skus')
 
     values = [
         dict(

@@ -74,7 +74,7 @@ def query_most_recent_lowest_listing_price(session: Session, card_id: int, delta
         .order_by(asc(SKUListingsBatchAggregateData.timestamp))
 
 
-def query_listing_skus(session: Session) -> List[int]:
+def get_listing_sku_ids(session: Session) -> List[int]:
     return session.scalars(select(SKUListing.sku_id).distinct()).all()
 
 
