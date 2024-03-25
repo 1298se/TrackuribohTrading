@@ -32,20 +32,20 @@ def _insert_listing_data(
 
     session.add_all(sku_listings)
 
-    sku_listings_dict = groupby(sku_listings, lambda listing: listing.sku_id)
+    sku_listings_groupby = groupby(sku_listings, lambda listing: listing.sku_id)
 
-    for sku_id, listings in sku_listings_dict:
+    for sku_id, listings in sku_listings_groupby:
+        listings = list(listings)
+
         sku_id_to_batch_aggregate_data = SKUListingsBatchAggregateData(
             sku_id=sku_id,
             timestamp=timestamp,
             lowest_listing_price=min([listing.price + listing.shipping_price for listing in listings]),
-            total_listings_count=len(list(listings)),
+            total_listings_count=len(listings),
             total_copies_count=sum([listing.quantity for listing in listings])
         )
 
         session.add(sku_id_to_batch_aggregate_data)
-
-    # logger.info(f'inserting {len(sku_listings)} listings')
 
     session.commit()
 
@@ -60,7 +60,7 @@ def download_product_listings(requests: List[CardRequestData], timestamp: dateti
 
 
 def fetch_card_listings(
-        requests: List[CardRequestData],
+    requests: List[CardRequestData],
 ):
     start_time = datetime.utcnow()
     logger.info(f'Fetching listings for {len(requests)} requests')

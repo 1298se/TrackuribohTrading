@@ -83,7 +83,7 @@ def get_sales_request_payload(count: int, offset: int, printings: List[str], con
 
 
 def get_product_active_listings(
-        request: CardRequestData,
+    request: CardRequestData,
 ) -> list[SKUListingResponse]:
     product_id = request['product_id']
     listings = {}
