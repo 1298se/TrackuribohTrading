@@ -26,6 +26,8 @@ NUM_WORKERS = 14
 TAX = Decimal(0.10)
 SELLER_COST = Decimal(0.85)
 BATCH_SIZE = 1000
+MAX_PROFIT_CUTOFF_DOLLARS = 1
+COPY_DELTA_TIME_SPAN_DAYS = 1
 
 
 @dataclass
@@ -96,12 +98,9 @@ def get_listings_dict(sku_ids: List[int]) -> dict[int, List[SKUListing]]:
 
 
 def get_purchase_copies_limit_dict(sku_ids: List[int]) -> dict[int, int]:
-    sku_id_to_purchase_limit = groupby(get_copies_delta_for_skus(session, sku_ids, timedelta(days=1)),
-                                       key=lambda x: x[0])
-
     return {
-        sku_id: list(purchase_limit)[0][1]  # purchase_limit only has 1 item
-        for sku_id, purchase_limit in sku_id_to_purchase_limit
+        sku_id: -1 * delta
+        for sku_id, delta in get_copies_delta_for_skus(session, sku_ids, timedelta(days=COPY_DELTA_TIME_SPAN_DAYS))
     }
 
 
@@ -120,7 +119,7 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitD
                 purchase_copies_limit=purchase_copies_limit_dict[sku_id]
             )
 
-            if card_profit_data.max_profit >= 1:
+            if card_profit_data.max_profit >= MAX_PROFIT_CUTOFF_DOLLARS:
                 profitable_skus.append(SkuProfitData(sku_id, card_profit_data))
 
     return profitable_skus
