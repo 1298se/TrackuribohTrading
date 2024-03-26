@@ -92,11 +92,11 @@ def get_copies_delta_for_skus(session: Session, sku_ids: List[int], delta: timed
     return session.query(
         SKUListingsBatchAggregateData.sku_id,
         (
-                func.first(
+                func.last(
                     SKUListingsBatchAggregateData.total_copies_count,
                     SKUListingsBatchAggregateData.timestamp
                 ) -
-                func.last(
+                func.first(
                     SKUListingsBatchAggregateData.total_copies_count,
                     SKUListingsBatchAggregateData.timestamp)
         )

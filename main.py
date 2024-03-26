@@ -1,3 +1,5 @@
 from services.find_profitable_skus import find_profitable_skus
+from tasks.fetch_card_listings import fetch_all_near_mint_card_listing_data
 
-find_profitable_skus()
+# find_profitable_skus()
+fetch_all_near_mint_card_listing_data()

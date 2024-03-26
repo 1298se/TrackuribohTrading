@@ -19,6 +19,7 @@ systemctl stop trackuriboh.service
 # see logs
 ```
 systemctl status trackuriboh.service
+journalctl -u -e trackuriboh.service
 ```
 
 # get into psql
