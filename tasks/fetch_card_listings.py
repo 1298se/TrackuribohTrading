@@ -98,7 +98,7 @@ def fetch_all_near_mint_card_listing_data():
         ) for skus in card_id_to_skus_dict.values()
     ]
 
-    fetch_card_listings(near_mint_skus_requests)
+    fetch_card_listings(near_mint_skus_requests[:5000])
 
 
 if __name__ == "__main__":

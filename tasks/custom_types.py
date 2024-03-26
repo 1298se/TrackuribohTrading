@@ -8,8 +8,8 @@ class CardRequestData(TypedDict):
 
 
 class SKUListingResponse(TypedDict):
-    listingId: float
-    productConditionId: float
+    listingId: int
+    productConditionId: int
     verifiedSeller: bool
     goldSeller: bool
     quantity: float
