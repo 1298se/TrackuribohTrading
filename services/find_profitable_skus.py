@@ -109,9 +109,8 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitD
     profitable_skus: List[SkuProfitData] = []
 
     for offset in range(0, len(sku_ids), BATCH_SIZE):
-
         listings_dict = get_listings_dict(sku_ids[offset:offset + BATCH_SIZE])
-        purchase_copies_limit_dict = get_purchase_copies_limit_dict(sku_ids)
+        purchase_copies_limit_dict = get_purchase_copies_limit_dict(sku_ids[offset:offset + BATCH_SIZE])
 
         for sku_id, listings_for_sku in listings_dict.items():
             card_profit_data = compute_max_profit_for_listings(
