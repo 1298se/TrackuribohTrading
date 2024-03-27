@@ -6,7 +6,7 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 
 scheduler.add_job(update_card_database, trigger='interval', days=1)  # Schedule to run every day
 scheduler.add_job(fetch_all_near_mint_card_listing_data, id="fetch_all_near_mint_listing", trigger='cron',
-                  hour='0,6,12,18')
+                  hour='0,4,8,12,16,20')
 
 
 # For now we're not fetching card sales because it can be replaced by listing count deltas, and the listings endpoint
