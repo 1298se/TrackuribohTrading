@@ -51,8 +51,6 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
     if quantity_limit <= 0:
         return max_profit_for_cards
 
-    listings = sorted(listings, key=lambda listing: listing.price + listing.shipping_price)
-
     for i in range(len(listings) - 1):
         listing = listings[i]
 
