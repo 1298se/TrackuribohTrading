@@ -1,10 +1,11 @@
 import logging
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from itertools import groupby
-from typing import List
+from typing import List, Dict
 
 from sqlalchemy.dialects.postgresql import insert
 
@@ -27,7 +28,7 @@ TAX = Decimal(0.10)
 SELLER_COST = Decimal(0.85)
 BATCH_SIZE = 1000
 MAX_PROFIT_CUTOFF_DOLLARS = 1
-COPY_DELTA_TIME_SPAN_DAYS = 1
+COPIES_DELTA_TIME_SPAN_DAYS = 1
 
 
 @dataclass
@@ -81,6 +82,8 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
 def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_limit: int | None = None) -> ProfitData:
     sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.shipping_price)
 
+    print(f'{listings[0].sku_id}: {[listing.price + listing.shipping_price for listing in sorted_listings_by_cost]}, copies_limit: {purchase_copies_limit}')
+
     num_cards = sum(
         listing.quantity for listing in listings
     ) if purchase_copies_limit is None else purchase_copies_limit
@@ -88,20 +91,22 @@ def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_
     return compute_profit_from_listings(sorted_listings_by_cost, num_cards)
 
 
-def get_listings_dict(sku_ids: List[int]) -> dict[int, List[SKUListing]]:
-    sku_id_to_listings = groupby(get_latest_listings_for_skus(session, sku_ids), key=lambda x: x.sku_id)
+def get_listings_dict(sku_ids: List[int]) -> Dict[int, List[SKUListing]]:
+    sku_id_to_listings_dict: Dict[int, List[SKUListing]] = defaultdict(list)
 
-    return {
-        sku_id: list(listing)
-        for sku_id, listing in sku_id_to_listings
-    }
+    for listing in get_latest_listings_for_skus(session, sku_ids):
+        sku_id_to_listings_dict[listing.sku_id].append(listing)
+
+    return sku_id_to_listings_dict
 
 
-def get_purchase_copies_limit_dict(sku_ids: List[int]) -> dict[int, int]:
-    return {
-        sku_id: -1 * delta
-        for sku_id, delta in get_copies_delta_for_skus(session, sku_ids, timedelta(days=COPY_DELTA_TIME_SPAN_DAYS))
-    }
+def get_purchase_copies_limit_dict(sku_ids: List[int]) -> Dict[int, int]:
+    sku_id_to_copies_dict: Dict[int, int] = {}
+
+    for sku_id, copies in get_copies_delta_for_skus(session, sku_ids, timedelta(days=COPIES_DELTA_TIME_SPAN_DAYS)):
+        sku_id_to_copies_dict[sku_id] = -copies
+
+    return sku_id_to_copies_dict
 
 
 @log_runtime
@@ -127,6 +132,7 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitD
 @log_runtime
 def get_profitable_skus() -> List[SkuProfitData]:
     listing_sku_ids = get_listing_sku_ids(session)
+    # listing_sku_ids = [1185481]  # get_listing_sku_ids(session)
 
     sku_id_segments = split_into_segments(list(listing_sku_ids), NUM_WORKERS)
 
@@ -189,11 +195,13 @@ def find_profitable_skus() -> None:
 
     profitable_skus = get_profitable_skus()
 
+    print(profitable_skus)
+
     logger.info(f'found {len(profitable_skus)} profitable skus')
 
-    # profitable_skus = get_good_looking_skus(profitable_skus)
+    profitable_skus = get_good_looking_skus(profitable_skus)
 
-    # logger.info(f'found {len(profitable_skus)} good skus')
+    logger.info(f'found {len(profitable_skus)} good skus')
 
     profitable_skus = list(
         sorted(profitable_skus, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost), reverse=True)
