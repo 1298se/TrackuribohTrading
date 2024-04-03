@@ -1,11 +1,9 @@
 import logging
-import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
-from itertools import groupby
 from typing import List, Dict
 
 import numpy as np
@@ -14,12 +12,11 @@ from sqlalchemy.dialects.postgresql import insert
 from statsmodels.tsa.holtwinters import Holt
 
 from constants import COPIES_TIME_DELTA_DAYS, BATCH_SIZE, MAX_PROFIT_CUTOFF_DOLLARS, NUM_WORKERS, SALES_TIME_DELTA_DAYS, \
-    SELLER_COST, TAX
+    SELLER_COST, TAX, SYNC_FREQUENCY_INTERVAL_HOURS
 from data.dao import get_latest_listings_for_skus, get_listing_sku_ids, get_copies_delta_for_skus
 from models import db_sessionmaker, SKU, CardSale
 from models.sku_listing import SKUListing
 from models.sku_max_profit import SKUMaxProfit
-from scheduler import SYNC_FREQUENCY_INTERVAL_HOURS
 from services.tcgplayer_listing_service import get_sales
 from tasks.custom_types import CardRequestData
 from tasks.log_runtime_decorator import log_runtime
