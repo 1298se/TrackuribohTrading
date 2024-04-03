@@ -12,5 +12,6 @@ sqlalchemy-timescaledb = "*"
 apscheduler = "*"
 python-dotenv = "*"
 psycopg2-binary = "*"
+statsmodels = "*"
 
 [dev-packages]

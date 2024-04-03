@@ -1,4 +1,5 @@
 import logging
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -7,12 +8,18 @@ from decimal import Decimal
 from itertools import groupby
 from typing import List, Dict
 
+import numpy as np
+import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
+from statsmodels.tsa.holtwinters import Holt
 
+from constants import COPIES_TIME_DELTA_DAYS, BATCH_SIZE, MAX_PROFIT_CUTOFF_DOLLARS, NUM_WORKERS, SALES_TIME_DELTA_DAYS, \
+    SELLER_COST, TAX
 from data.dao import get_latest_listings_for_skus, get_listing_sku_ids, get_copies_delta_for_skus
 from models import db_sessionmaker, SKU, CardSale
 from models.sku_listing import SKUListing
 from models.sku_max_profit import SKUMaxProfit
+from scheduler import SYNC_FREQUENCY_INTERVAL_HOURS
 from services.tcgplayer_listing_service import get_sales
 from tasks.custom_types import CardRequestData
 from tasks.log_runtime_decorator import log_runtime
@@ -21,14 +28,6 @@ from tasks.utils import split_into_segments
 logger = logging.getLogger(__name__)
 
 session = db_sessionmaker()
-
-NUM_WORKERS = 14
-"""Max 14 workers because of DB config of 5 concurrent + 10 overflow connections"""
-TAX = Decimal(0.10)
-SELLER_COST = Decimal(0.85)
-BATCH_SIZE = 1000
-MAX_PROFIT_CUTOFF_DOLLARS = 1
-COPIES_DELTA_TIME_SPAN_DAYS = 1
 
 
 @dataclass
@@ -82,8 +81,6 @@ def compute_profit_from_listings(listings: List[SKUListing], quantity_limit: int
 def compute_max_profit_for_listings(listings: List[SKUListing], purchase_copies_limit: int | None = None) -> ProfitData:
     sorted_listings_by_cost = sorted(listings, key=lambda x: x.price + x.shipping_price)
 
-    print(f'{listings[0].sku_id}: {[listing.price + listing.shipping_price for listing in sorted_listings_by_cost]}, copies_limit: {purchase_copies_limit}')
-
     num_cards = sum(
         listing.quantity for listing in listings
     ) if purchase_copies_limit is None else purchase_copies_limit
@@ -103,7 +100,7 @@ def get_listings_dict(sku_ids: List[int]) -> Dict[int, List[SKUListing]]:
 def get_purchase_copies_limit_dict(sku_ids: List[int]) -> Dict[int, int]:
     sku_id_to_copies_dict: Dict[int, int] = {}
 
-    for sku_id, copies in get_copies_delta_for_skus(session, sku_ids, timedelta(days=COPIES_DELTA_TIME_SPAN_DAYS)):
+    for sku_id, copies in get_copies_delta_for_skus(session, sku_ids, timedelta(days=COPIES_TIME_DELTA_DAYS)):
         sku_id_to_copies_dict[sku_id] = -copies
 
     return sku_id_to_copies_dict
@@ -130,9 +127,9 @@ def compute_max_potential_profit_for_skus(sku_ids: List[int]) -> List[SkuProfitD
 
 
 @log_runtime
-def get_profitable_skus() -> List[SkuProfitData]:
+def get_potentially_profitable_skus() -> List[SkuProfitData]:
     listing_sku_ids = get_listing_sku_ids(session)
-    # listing_sku_ids = [1185481]  # get_listing_sku_ids(session)
+    # listing_sku_ids = [3040466]
 
     sku_id_segments = split_into_segments(list(listing_sku_ids), NUM_WORKERS)
 
@@ -157,17 +154,40 @@ def determine_num_copies_sold_per_day(sku_id: int) -> Decimal:
         conditions=[sku.condition_id],
     )
 
-    sales = get_sales(request=card_request, time_delta=timedelta(hours=24))
+    sales = get_sales(request=card_request, time_delta=timedelta(days=SALES_TIME_DELTA_DAYS))
+
     if not sales:
         return Decimal(0)
 
-    grouped_sales_by_day = groupby(sales, key=lambda sale: CardSale.parse_response_order_date(sale['orderDate']).date())
+    sales_to_quantity_list = [
+        (CardSale.parse_response_order_date(sale['orderDate']), sale['quantity']) for sale in sales
+    ]
 
-    num_sales_by_day = [sum(sale['quantity'] for sale in sales) for (_, sales) in grouped_sales_by_day]
+    sales_to_quantity_df = pd.DataFrame(sales_to_quantity_list, columns=['datetime', 'quantity'])
 
-    avg_sales_per_day = Decimal(sum(num_sales_by_day) * 1)
+    sales_to_quantity_df.set_index('datetime', inplace=True)
 
-    return avg_sales_per_day
+    sales_to_quantity_df_time_bucket_sync_frequency = \
+        sales_to_quantity_df.resample(f'4h').sum()
+
+    now = pd.Timestamp.now()
+    one_week_ago = now - pd.Timedelta(days=7)
+
+    full_range = pd.date_range(start=one_week_ago.floor('4h'), end=now.ceil('4h'), freq='4h', tz='UTC')
+
+    sales_to_quantity_df_time_bucket_sync_frequency = \
+        sales_to_quantity_df_time_bucket_sync_frequency.resample(f'4h').sum()
+
+    sales_to_quantity_df_time_bucket_sync_frequency = sales_to_quantity_df_time_bucket_sync_frequency.reindex(
+        full_range, fill_value=0)
+
+    model = Holt(np.asarray(sales_to_quantity_df_time_bucket_sync_frequency['quantity'])).fit()
+
+    forecast = sum(model.forecast(steps=int(24 / SYNC_FREQUENCY_INTERVAL_HOURS)))
+
+    print(forecast)
+
+    return forecast
 
 
 @log_runtime
@@ -193,15 +213,13 @@ def get_good_looking_skus(profitable_skus: List[SkuProfitData]) -> List[SkuProfi
 def find_profitable_skus() -> None:
     session.query(SKUMaxProfit).delete()
 
-    profitable_skus = get_profitable_skus()
+    profitable_skus = get_potentially_profitable_skus()
 
-    print(profitable_skus)
-
-    logger.info(f'found {len(profitable_skus)} profitable skus')
+    logger.info(f'found {len(profitable_skus)} potentially profitable skus')
 
     profitable_skus = get_good_looking_skus(profitable_skus)
 
-    logger.info(f'found {len(profitable_skus)} good skus')
+    logger.info(f'found {len(profitable_skus)} profitable skus')
 
     profitable_skus = list(
         sorted(profitable_skus, key=lambda x: float(x.profit_data.max_profit / x.profit_data.cost), reverse=True)
