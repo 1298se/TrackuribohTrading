@@ -51,6 +51,6 @@ with engine.connect() as connection:
     connection.execute(create_sku_listings_batch_aggregate_data_hypertable_sql)
     connection.execute(create_card_sales_hypertable_sql)
 
-    connection.execute(text(f"SELECT add_retention_policy('{SKUListing.__tablename__}', INTERVAL '7 days', if_not_exists => TRUE);"))
+    connection.execute(text(f"SELECT add_retention_policy('{SKUListing.__tablename__}', INTERVAL '1 day', if_not_exists => TRUE);"))
 
     connection.commit()
