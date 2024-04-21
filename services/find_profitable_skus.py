@@ -178,7 +178,7 @@ def determine_num_copies_sold_per_day(sku_id: int) -> Decimal:
     sales_to_quantity_df_time_bucket_sync_frequency = sales_to_quantity_df_time_bucket_sync_frequency.reindex(
         full_range, fill_value=0)
 
-    model = Holt(np.asarray(sales_to_quantity_df_time_bucket_sync_frequency['quantity'])).fit()
+    model = Holt(np.asarray(sales_to_quantity_df_time_bucket_sync_frequency['quantity']), damped_trend=True).fit()
 
     forecast = sum(model.forecast(steps=int(24 / SYNC_FREQUENCY_INTERVAL_HOURS)))
 
@@ -196,7 +196,7 @@ def get_good_looking_skus(profitable_skus: List[SkuProfitData]) -> List[SkuProfi
         num_copies_sold_per_day = determine_num_copies_sold_per_day(sku_id=sku_id)
 
         # TODO: room for optimization. We currently just use the 3-day sales count as the number of copies we can buy
-        sku_profit_data = compute_max_profit_for_listings(listings_dict[sku_id], int(num_copies_sold_per_day * 5))
+        sku_profit_data = compute_max_profit_for_listings(listings_dict[sku_id], int(num_copies_sold_per_day * 3))
 
         if sku_profit_data.max_profit >= 1:
             good_looking_profits.append(SkuProfitData(sku_id, sku_profit_data))
