@@ -46,9 +46,15 @@ create_sku_listings_batch_aggregate_data_hypertable_sql = text(
     f"if_not_exists => TRUE);"
 )
 
+enable_sku_listings_batch_aggregate_data_compression_Sql = text(
+    f"ALTER TABLE '{SKUListingsBatchAggregateData.__tablename__}' SET (timescaledb.compress)"
+)
+
 with engine.connect() as connection:
     connection.execute(create_sku_listing_hypertable_sql)
     connection.execute(create_sku_listings_batch_aggregate_data_hypertable_sql)
+    connection.execute(enable_sku_listings_batch_aggregate_data_compression_Sql)
+
     connection.execute(create_card_sales_hypertable_sql)
 
     connection.execute(text(f"SELECT add_retention_policy('{SKUListing.__tablename__}', INTERVAL '24 hours', if_not_exists => TRUE);"))
