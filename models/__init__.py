@@ -47,7 +47,7 @@ create_sku_listings_batch_aggregate_data_hypertable_sql = text(
 )
 
 enable_sku_listings_batch_aggregate_data_compression_Sql = text(
-    f"ALTER TABLE {SKUListingsBatchAggregateData.__tablename__} SET (timescaledb.compress)"
+    f"ALTER TABLE {SKUListingsBatchAggregateData.__tablename__} SET (timescaledb.compress, timescaledb.compress_segmentby = 'sku_id')"
 )
 
 with engine.connect() as connection:
