@@ -52,6 +52,6 @@ with engine.connect() as connection:
     connection.execute(create_card_sales_hypertable_sql)
 
     connection.execute(text(f"SELECT add_retention_policy('{SKUListing.__tablename__}', INTERVAL '24 hours', if_not_exists => TRUE);"))
-    connection.execute(text(f"SELECT add_compression_policy('{SKUListing.__tablename__}', INTERVAL '7 days', if_not_exists => TRUE);"))
+    connection.execute(text(f"SELECT add_compression_policy('{SKUListingsBatchAggregateData.__tablename__}', INTERVAL '7 days', if_not_exists => TRUE);"))
 
     connection.commit()
